@@ -1,0 +1,14 @@
+{
+  "articles": [
+    {
+      "category": "Brasil",
+      "title": "Título da notícia",
+      "excerpt": "Resumo curto e claro, sem alterar o sentido da fonte original.",
+      "time": "3 min",
+      "date": "25 out 2026",
+      "sourceName": "Nome da fonte",
+      "sourceUrl": "https://exemplo.com/noticia",
+      "publishedAt": "2026-10-25T12:00:00-03:00"
+    }
+  ]
+}
