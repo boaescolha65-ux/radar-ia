@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administração — Radar IA</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f3f6fb;
+      color: #172033;
+      font-family: Arial, sans-serif;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header { margin-bottom: 28px; }
+
+    h1 { margin-bottom: 8px; }
+
+    .muted { color: #64748b; }
+
+    .panel, .article {
+      background: white;
+      border: 1px solid #dfe6ef;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      padding: 11px 15px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 4px 5px 4px 0;
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: wait;
+    }
+
+    .primary { background: #0f766e; color: white; }
+    .approve { background: #dcfce7; color: #166534; }
+    .reject { background: #fee2e2; color: #991b1b; }
+    .secondary { background: #e2e8f0; color: #172033; }
+
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 14px 0;
+      overflow-wrap: anywhere;
+    }
+
+    .error { background: #fee2e2; color: #991b1b; }
+    .success { background: #dcfce7; color: #166534; }
+
+    .article h2 {
+      font-size: 20px;
+      line-height: 1.4;
+    }
+
+    .article p { line-height: 1.6; }
+
+    .article a {
+      color: #0f766e;
+      overflow-wrap: anywhere;
+    }
+
+    .actions { margin-top: 18px; }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 600px) {
+      body { padding: 14px; }
+      .panel, .article { padding: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+<main>
+  <header>
+    <h1>Radar IA — Revisão editorial</h1>
+    <p class="muted">
+      Revise cada notícia antes de decidir se ela será publicada.
+    </p>
+  </header>
+
+  <section class="panel" id="loginPanel">
+    <h2>Acesso administrativo</h2>
+    <p class="muted">
+      Digite o ADMIN_TOKEN configurado no Cloudflare.
+      O token não será salvo no navegador.
+    </p>
+
+    <form id="loginForm">
+      <label for="token">Token administrativo</label>
+      <input
+        id="token"
+        type="password"
+        autocomplete="off"
+        required
+        placeholder="Digite seu token privado"
+      >
+      <button class="primary" type="submit">
+        Entrar e carregar notícias
+      </button>
+    </form>
+  </section>
+
+  <section id="adminPanel" hidden>
+    <div class="panel">
+      <h2>Notícias aguardando revisão</h2>
+      <p id="summary" class="muted">
+        Aguardando carregamento...
+      </p>
+
+      <button id="reloadButton" class="primary">
+        Atualizar lista
+      </button>
+
+      <button id="logoutButton" class="secondary">
+        Sair
+      </button>
+
+      <div id="message" role="status" aria-live="polite"></div>
+    </div>
+
+    <div id="articles"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const API_BASE =
+    "https://radar-ia-api.boaescolha65.workers.dev";
+
+  let adminToken = "";
+  let busy = false;
+
+  const loginPanel = document.getElementById("loginPanel");
+  const adminPanel = document.getElementById("adminPanel");
+  const loginForm = document.getElementById("loginForm");
+  const tokenInput = document.getElementById("token");
+  const articlesBox = document.getElementById("articles");
+  const summary = document.getElementById("summary");
+  const message = document.getElementById("message");
+  const reloadButton = document.getElementById("reloadButton");
+  const logoutButton = document.getElementById("logoutButton");
+
+  function showMessage(text, type) {
+    message.textContent = text;
+    message.className = "message " + (type || "");
+  }
+
+  async function apiRequest(path, options) {
+    const response = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        "Authorization": "Bearer " + adminToken,
+        ...(options && options.headers ? options.headers : {})
+      }
+    });
+
+    const text = await response.text();
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(
+        "O servidor retornou uma resposta inesperada. HTTP " +
+        response.status
+      );
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        logout();
+        throw new Error(
+          "Token não autorizado. Entre novamente."
+        );
+      }
+
+      throw new Error(
+        data.error || "Falha na requisição. HTTP " + response.status
+      );
+    }
+
+    return data;
+  }
+
+  function addTextElement(parent, tag, text, className) {
+    const element = document.createElement(tag);
+    element.textContent = text || "";
+
+    if (className) {
+      element.className = className;
+    }
+
+    parent.appendChild(element);
+    return element;
+  }
+
+  function formatDate(value) {
+    if (!value) return "Data não informada";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleString("pt-BR");
+  }
+
+  function renderArticles(articles) {
+    articlesBox.replaceChildren();
+    summary.textContent =
+      articles.length + " notícia(s) aguardando revisão.";
+
+    if (!articles.length) {
+      addTextElement(
+        articlesBox,
+        "div",
+        "Nenhuma notícia pendente no momento.",
+        "panel"
+      );
+      return;
+    }
+
+    articles.forEach(function (article) {
+      const card = document.createElement("article");
+      card.className = "article";
+
+      addTextElement(
+        card,
+        "p",
+        "ID " + article.id + " · " + article.category,
+        "muted"
+      );
+
+      addTextElement(card, "h2", article.title);
+      addTextElement(card, "p", article.excerpt);
+      addTextElement(card, "p", article.body);
+
+      addTextElement(
+        card,
+        "p",
+        "Fonte: " + article.source_name
+      );
+
+      const link = document.createElement("a");
+      link.href = article.source_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Abrir notícia original ↗";
+      card.appendChild(link);
+
+      addTextElement(
+        card,
+        "p",
+        "Publicada na fonte: " + formatDate(article.published_at),
+        "muted"
+      );
+
+      addTextElement(
+        card,
+        "p",
+        "Recebida pelo Radar: " + formatDate(article.created_at),
+        "muted"
+      );
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const approveButton = document.createElement("button");
+      approveButton.className = "approve";
+      approveButton.textContent = "Aprovar publicação";
+
+      approveButton.addEventListener("click", function () {
+        reviewArticle(article.id, "approve", approveButton, rejectButton);
+      });
+
+      const rejectButton = document.createElement("button");
+      rejectButton.className = "reject";
+      rejectButton.textContent = "Rejeitar notícia";
+
+      rejectButton.addEventListener("click", function () {
+        reviewArticle(article.id, "reject", approveButton, rejectButton);
+      });
+
+      actions.append(approveButton, rejectButton);
+      card.appendChild(actions);
+      articlesBox.appendChild(card);
+    });
+  }
+
+  async function loadArticles() {
+    if (busy) return;
+
+    busy = true;
+    reloadButton.disabled = true;
+    showMessage("Carregando notícias...", "");
+
+    try {
+      const data = await apiRequest("/admin/articles", {
+        method: "GET"
+      });
+
+      if (!Array.isArray(data.articles)) {
+        throw new Error(
+          "Formato inesperado: a resposta não contém a lista articles."
+        );
+      }
+
+      renderArticles(data.articles);
+      showMessage("Lista atualizada com sucesso.", "success");
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      busy = false;
+      reloadButton.disabled = false;
+    }
+  }
+
+  async function reviewArticle(id, action, approveButton, rejectButton) {
+    if (busy) return;
+
+    const verb = action === "approve" ? "aprovar" : "rejeitar";
+
+    const confirmed = window.confirm(
+      "Confirma " + verb + " a notícia de ID " + id + "?"
+    );
+
+    if (!confirmed) return;
+
+    busy = true;
+    approveButton.disabled = true;
+    rejectButton.disabled = true;
+
+    try {
+      const result = await apiRequest("/admin/" + action, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id: id })
+      });
+
+      showMessage(
+        "Notícia " + id + ": operação concluída. Status: " +
+        result.status,
+        "success"
+      );
+
+      await loadArticles();
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      busy = false;
+      approveButton.disabled = false;
+      rejectButton.disabled = false;
+    }
+  }
+
+  function logout() {
+    adminToken = "";
+    tokenInput.value = "";
+    articlesBox.replaceChildren();
+    summary.textContent = "";
+    message.textContent = "";
+    message.className = "";
+    loginPanel.hidden = false;
+    adminPanel.hidden = true;
+  }
+
+  loginForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const enteredToken = tokenInput.value.trim();
+
+    if (!enteredToken) {
+      showMessage("Digite o token administrativo.", "error");
+      return;
+    }
+
+    adminToken = enteredToken;
+    tokenInput.value = "";
+    loginPanel.hidden = true;
+    adminPanel.hidden = false;
+
+    await loadArticles();
+  });
+
+  reloadButton.addEventListener("click", loadArticles);
+  logoutButton.addEventListener("click", logout);
+})();
+</script>
+</body>
+</html>
