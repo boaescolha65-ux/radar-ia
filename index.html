@@ -111,7 +111,7 @@ let articles = [...demoArticles], activeFilter = "Todos", searchTerm = "";
 const grid = document.getElementById("articleGrid");
 function renderArticles(){
  const filtered=articles.filter(a=>(activeFilter==="Todos"||a.category===activeFilter)&&(`${a.title} ${a.excerpt} ${a.category}`.toLowerCase().includes(searchTerm)));
- grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card"><div class="article-top"><span class="category">${escapeHTML(a.category)}</span><span class="read-time">${escapeHTML(a.time||"4 min")} de leitura</span></div><h3>${escapeHTML(a.title)}</h3><p>${escapeHTML(a.excerpt)}</p><div class="article-bottom"><span>${escapeHTML(a.date||"Atualizado")}</span><a href="#" class="article-read" data-title="${escapeHTML(a.title)}">Ler resumo ↗</a></div></article>`).join("") : '<div class="empty">Nenhum artigo encontrado. Tente outro termo ou categoria.</div>';
+ grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card"><div class="article-top"><span class="category">${escapeHTML(a.category)}</span><span class="read-time">${escapeHTML(a.time||"4 min")} de leitura</span></div><h3>${escapeHTML(a.title)}</h3><p>${escapeHTML(a.excerpt)}</p><div class="article-bottom"><span>${escapeHTML(a.publishedAt ? new Date(a.publishedAt).toLocaleDateString("pt-BR") : (a.date || "Atualizado"))}</span><a href="#" class="article-read" data-title="${escapeHTML(a.title)}">Ler resumo ↗</a></div></article>`).join("") : '<div class="empty">Nenhum artigo encontrado. Tente outro termo ou categoria.</div>';
 }
 function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 renderArticles();
