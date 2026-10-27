@@ -102,7 +102,27 @@ function renderArticles(){
  const filtered=articles.filter(a=>(activeFilter==="Todos"||a.category===activeFilter)&&(`${a.title||""} ${a.excerpt||""} ${a.category||""}`.toLowerCase().includes(searchTerm)));
  grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card"><div class="article-top"><span class="category">${escapeHTML(a.category||"Geral")}</span><span class="read-time">${escapeHTML(a.time||"Artigo completo")}</span></div><h3>${escapeHTML(a.title||"Sem título")}</h3><p>${escapeHTML(a.excerpt||"")}</p><div class="article-bottom"><span>${escapeHTML(formatDate(a.publishedAt||a.createdAt))}</span><a href="#artigo/${encodeURIComponent(a.id)}" class="article-read" data-article-id="${escapeHTML(a.id)}">Ler artigo completo ↗</a></div></article>`).join("") : '<div class="empty">Nenhum artigo publicado encontrado. Volte em breve ou tente outra categoria.</div>';
 }
-function formatDate(value){if(!value)return "Data não informada";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString("pt-BR");}
+
+function formatDate(value, includeTime = false) {
+  if (!value) return "Data não informada";
+
+  const d = new Date(value);
+
+  if (Number.isNaN(d.getTime())) return String(value);
+
+  return d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }) + (includeTime
+    ? " às " + d.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      })
+    : "");
+}
+
 function renderArticleDetail(id){
  const article=articles.find(a=>String(a.id)===String(id));
  const panel=document.getElementById("articleDetail");
