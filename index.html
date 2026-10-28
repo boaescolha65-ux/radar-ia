@@ -164,8 +164,8 @@ async function refreshArticles(){
    const res=await fetch(CONFIG.articlesEndpoint,{cache:"no-store"});
    if(!res.ok)throw new Error("A API respondeu com status "+res.status);
    const data=await res.json();
-   if(!Array.isArray(data.articles))throw new Error("Formato de dados inválido");
-   articles=data.articles.filter(a=>a&&a.id!==undefined&&a.title);
+   if(!Array.isArray(data))throw new Error("Formato de dados inválido");
+  articles=data.filter(a=>a&&a.id!==undefined&&a.title);
    renderArticles();
    status.textContent="Notícias atualizadas às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
    const current=decodeURIComponent(location.hash.replace(/^#/,""));
