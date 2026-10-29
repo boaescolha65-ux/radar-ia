@@ -7,7 +7,7 @@
       "time": "3 min",
       "date": "25 out 2026",
       "sourceName": "Nome da fonte",
-      "sourceUrl": "https://exemplo.com/noticia",
+      "sourceUrl": "https://radar-ia-api.boaescolha65.workers.dev/api/articles.json",
       "publishedAt": "2026-10-25T12:00:00-03:00"
     }
   ]
