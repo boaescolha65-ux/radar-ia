@@ -125,7 +125,7 @@ const paragraphs = body
   .map(p => `<p>${escapeHTML(p)}</p>`)
   .join("");
 
-const source = `<div class="article-source">Fonte: ${escapeHTML(article.sourceName || "Não informada")}</div>`;
+const source = `<p>Fonte: ${escapeHTML(article.sourceName || "Não informada")}</p>`;
 
 panel.innerHTML = `
   <div class="eyebrow">${escapeHTML(article.category || "Notícias")}</div>
@@ -134,14 +134,14 @@ panel.innerHTML = `
 
   <div class="article-meta">
     <span>Publicado: ${escapeHTML(formatDate(article.publishedAt || article.createdAt))}</span>
-    <span>Fonte: ${escapeHTML(article.sourceName || "Não informada")}</span>
   </div>
 
   <div class="article-body">
     ${paragraphs}
+      ${source}
   </div>
 
-  ${source}
+
 
   <div>
     <a class="btn btn-primary article-back" href="#inicio" data-page="inicio">
