@@ -29,6 +29,17 @@
     @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:32px}.briefing{max-width:650px}.featured-grid{grid-template-columns:1fr}.feature-side{grid-template-columns:1fr 1fr;grid-template-rows:auto}.article-grid{grid-template-columns:repeat(2,1fr)}.trust-strip{grid-template-columns:1fr}.newsletter{align-items:flex-start;flex-direction:column}.newsletter-form{width:100%}.nav-links{gap:14px}.contact-grid{grid-template-columns:1fr}}
     .article-detail-wrap{padding-top:34px;padding-bottom:60px}.article-detail{max-width:850px;margin:22px auto;padding:clamp(22px,5vw,56px)}.article-detail h1{font-size:clamp(30px,5vw,48px);margin:14px 0 18px}.article-detail .article-lead{font-size:19px;color:var(--muted);line-height:1.75}.article-detail .article-body{font-size:17px;line-height:1.9;margin-top:28px;overflow-wrap:anywhere}.article-detail .article-body p{margin:0 0 1.2em}.article-detail .article-meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px 18px;margin:12px 0 24px}.article-detail .source-link{display:inline-block;margin-top:24px;color:#087e73;font-weight:800}.article-detail .article-back{margin-top:28px}.article-error{padding:26px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--muted)}
     @media(max-width:620px){.container{width:min(100% - 28px,1160px)}.topline .container{font-size:10px}.topline .container span:last-child{display:none}.nav{min-height:68px;flex-wrap:wrap;padding:12px 0}.brand{font-size:19px}.brand-mark{width:34px;height:34px}.nav-links{order:3;width:100%;overflow:auto;gap:22px;padding:5px 0 3px;font-size:12px}.nav-links a{white-space:nowrap}.nav-cta{padding:9px 11px;font-size:11px}.hero{padding:48px 0 42px}.hero h1{font-size:39px}.hero p{font-size:15px}.briefing{padding:19px}.briefing h3{font-size:20px}.ticker .container{gap:10px}.ticker-items{gap:18px}.section-head{align-items:flex-start;flex-direction:column}.section-head h2{font-size:27px}.filter-row{gap:7px}.filter{padding:8px 11px}.search{margin:5px 0 0;min-width:100%;max-width:none;flex-basis:100%}.feature-card{min-height:360px}.feature-content{padding:22px}.feature-content h3{font-size:28px}.feature-art:after{font-size:75px;right:10%;top:35px}.feature-side{grid-template-columns:1fr}.side-card{min-height:170px}.article-grid{grid-template-columns:1fr}.article-card{min-height:230px}.trust-strip{padding:19px;gap:18px}.newsletter{padding:25px 20px}.newsletter h2{font-size:23px}.newsletter-form{flex-direction:column}.newsletter-form .btn{width:100%}.page-section{padding:40px 0}.content-panel{padding:21px}.contact-grid{gap:15px}.footer-grid{grid-template-columns:1fr;gap:22px}.footer-bottom{flex-direction:column}.wa-float{right:12px;bottom:12px;padding:12px 14px}.wa-float .wa-label{display:none}}
+
+.article-hero-image {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin: 0 0 24px;
+  background: #f1f5f9;
+}
+
   </style>
 </head>
 <body>
@@ -128,9 +139,20 @@ const paragraphs = body
 const source = `<p>Fonte: ${escapeHTML(article.sourceName || "Não informada")}</p>`;
 
 panel.innerHTML = `
+ 
+panel.innerHTML = `
+  ${article.imageUrl ? `
+    <img
+      src="${escapeHTML(article.imageUrl)}"
+      alt="${escapeHTML(article.titlePt || article.title || "Imagem da notícia")}"
+      class="article-hero-image"
+      loading="lazy"
+      onerror="this.style.display='none'"
+    >
+  ` : ""}
   <div class="eyebrow">${escapeHTML(article.category || "Notícias")}</div>
-
   <h1>${escapeHTML(article.titlePt || "Título em português indisponível")}</h1>
+
 
   <div class="article-meta">
     <span>Publicado: ${escapeHTML(formatDate(article.publishedAt || article.createdAt))}</span>
