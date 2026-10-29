@@ -108,7 +108,7 @@ function renderArticleDetail(id){
  const panel=document.getElementById("articleDetail");
  if(!article){panel.innerHTML='<div class="article-error"><h1>Artigo não encontrado</h1><p>Esse artigo pode não estar mais publicado ou o endereço está incorreto.</p><a class="btn btn-primary article-back" href="#inicio" data-page="inicio">Voltar às notícias</a></div>';return;}
  const body=String(article.bodyPt||"O conteúdo em português ainda não está disponível.");
-const paragraphs=body.split(/\n{2,}|\r?\n/).map(p=>p.trim()).filter(p=>p && /[áàâãéêíóôõúç]/i.test(p)).map(p=>`<p>${escapeHTML(p)}</p>`).join("");
+const paragraphs=body.split(/\n{2,}|\r?\n/).map(p=>p.trim()).filter(Boolean).slice(0,1).map(p=>`<p>${escapeHTML(p)}</p>`).join("");
  const source=article.sourceUrl&&/^https?:\/\//i.test(article.sourceUrl)?`<a class="source-link" href="${escapeHTML(article.sourceUrl)}" target="_blank" rel="noopener noreferrer">Consultar fonte original ↗</a>`:"";
  panel.innerHTML=`<div class="eyebrow">${escapeHTML(article.category||"Notícias")}</div><h1>${escapeHTML(article.titlePt||"Título em português indisponível")}</h1><p class="article-lead">${escapeHTML(article.excerptPt||article.excerpt||"")}</p><div class="article-meta"><span>Publicado: ${escapeHTML(formatDate(article.publishedAt||article.createdAt))}</span><span>Fonte: ${escapeHTML(article.sourceName||"Não informada")}</span></div><div class="article-body">${paragraphs}</div>${source}<div><a class="btn btn-primary article-back" href="#inicio" data-page="inicio">← Voltar às notícias</a></div>`;
 }
