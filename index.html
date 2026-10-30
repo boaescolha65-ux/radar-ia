@@ -39,7 +39,69 @@
   margin: 0 0 24px;
   background: #f1f5f9;
 }
+.article-hero-image {
+  display: block;
+  width: 100%;
+  max-height: 460px;
+  object-fit: cover;
+  border-radius: 16px;
+  margin: 0 0 28px;
+  background: #e8edf3;
+}
 
+.article-detail .article-lead-box {
+  background: #eef8f7;
+  border-left: 4px solid #0c8278;
+  padding: 18px 20px;
+  border-radius: 8px;
+  margin: 20px 0 28px;
+  color: #334155;
+  font-size: 18px;
+}
+
+.article-detail .article-body {
+  font-size: 17px;
+  line-height: 1.9;
+  color: #273449;
+  overflow-wrap: anywhere;
+}
+
+.article-detail .article-body p {
+  margin: 0 0 20px;
+}
+
+.article-detail .article-body h2 {
+  font-size: 25px;
+  margin: 34px 0 14px;
+  color: #0b1220;
+}
+
+.article-detail .article-body h3 {
+  font-size: 20px;
+  margin: 26px 0 12px;
+  color: #17394a;
+}
+
+.article-detail .article-body strong {
+  color: #087e73;
+  font-weight: 800;
+}
+
+.article-detail .article-body ul {
+  padding-left: 24px;
+  margin: 12px 0 24px;
+}
+
+.article-detail .article-body li {
+  margin-bottom: 9px;
+}
+
+.article-detail .article-source {
+  border-top: 1px solid var(--line);
+  margin-top: 32px;
+  padding-top: 20px;
+  font-size: 13px;
+}
   </style>
 </head>
 <body>
@@ -117,58 +179,152 @@ function renderArticles(){
  grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card"><div class="article-top"><span class="category">${escapeHTML(a.category||"Geral")}</span><span class="read-time">${escapeHTML(a.time||"Artigo completo")}</span></div><h3>${escapeHTML(a.titlePt||a.title||"Sem título")}</h3><p>${escapeHTML(a.excerptPt||a.excerpt||"")}</p><div class="article-bottom"><span>${escapeHTML(formatDate(a.publishedAt||a.createdAt))}</span><a href="#artigo/${encodeURIComponent(a.id)}" class="article-read" data-article-id="${escapeHTML(a.id)}">Ler artigo completo ↗</a></div></article>`).join("") : '<div class="empty">Nenhum artigo publicado encontrado. Volte em breve ou tente outra categoria.</div>';
 }
 function formatDate(value){if(!value)return "Data não informada";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString("pt-BR");}
-function renderArticleDetail(id){
- const article=articles.find(a=>String(a.id)===String(id));
- const panel=document.getElementById("articleDetail");
- if(!article){panel.innerHTML='<div class="article-error"><h1>Artigo não encontrado</h1><p>Esse artigo pode não estar mais publicado ou o endereço está incorreto.</p><a class="btn btn-primary article-back" href="#inicio" data-page="inicio">Voltar às notícias</a></div>';return;}
- 
-const body = String(
-  article.bodyPt || article.excerptPt ||
-  "O conteúdo completo em português ainda não está disponível."
-);
 
-const paragraphs = body
-  .split(/\n{2,}|\r?\n/)
-  .map(p => p.trim())
-  .filter(Boolean)
-  .map(p => `<p>${escapeHTML(p)}</p>`)
-  .join("");
+function formatArticleBody(text) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n");
+  let html = "";
+  let paragraph = [];
+  let list = [];
 
-const source = `<p>Fonte: ${escapeHTML(article.sourceName || "Não informada")}</p>`;
- 
-panel.innerHTML = `
-  ${article.imageUrl ? `
-    <img
-      src="${escapeHTML(article.imageUrl)}"
-      alt="${escapeHTML(article.titlePt || article.title || "Imagem da notícia")}"
-      class="article-hero-image"
-      loading="lazy"
-      onerror="this.style.display='none'"
-    >
-  ` : ""}
-  <div class="eyebrow">${escapeHTML(article.category || "Notícias")}</div>
-  <h1>${escapeHTML(article.titlePt || "Título em português indisponível")}</h1>
+  function inline(text) {
+    return escapeHTML(text)
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>");
+  }
 
+  function flushParagraph() {
+    if (paragraph.length) {
+      html += `<p>${inline(paragraph.join(" "))}</p>`;
+      paragraph = [];
+    }
+  }
 
-  <div class="article-meta">
-    <span>Publicado: ${escapeHTML(formatDate(article.publishedAt || article.createdAt))}</span>
-  </div>
+  function flushList() {
+    if (list.length) {
+      html += "<ul>" + list.map(item => `<li>${inline(item)}</li>`).join("") + "</ul>";
+      list = [];
+    }
+  }
 
-  <div class="article-body">
-    ${paragraphs}
-      ${source}
-  </div>
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
 
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
 
+    if (line.startsWith("### ")) {
+      flushParagraph();
+      flushList();
+      html += `<h3>${inline(line.slice(4))}</h3>`;
+    } else if (line.startsWith("## ")) {
+      flushParagraph();
+      flushList();
+      html += `<h2>${inline(line.slice(3))}</h2>`;
+    } else if (/^[-*]\s+/.test(line)) {
+      flushParagraph();
+      list.push(line.replace(/^[-*]\s+/, ""));
+    } else {
+      flushList();
+      paragraph.push(line);
+    }
+  }
 
-  <div>
-    <a class="btn btn-primary article-back" href="#inicio" data-page="inicio">
+  flushParagraph();
+  flushList();
+
+  return html;
+}
+
+function safeImageUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function renderArticleDetail(id) {
+  const article = articles.find(a => String(a.id) === String(id));
+  const panel = document.getElementById("articleDetail");
+
+  if (!article) {
+    panel.innerHTML = `
+      <div class="article-error">
+        <h1>Artigo não encontrado</h1>
+        <p>Esse artigo pode não estar mais publicado ou o endereço está incorreto.</p>
+        <a class="btn btn-primary article-back" href="#inicio">Voltar às notícias</a>
+      </div>`;
+    return;
+  }
+
+  // Prioriza o conteúdo integral em português.
+  const body = String(article.bodyPt || article.body_pt || "").trim();
+  const excerpt = String(article.excerptPt || article.excerpt_pt || "").trim();
+
+  // Aceita diferentes nomes de campo para a imagem.
+  const image = safeImageUrl(
+    article.imageUrl || article.image_url || article.image || article.thumbnail
+  );
+
+  const sourceUrl = safeImageUrl(article.sourceUrl || article.source_url);
+  const title = article.titlePt || article.title_pt || article.title || "Notícia";
+  const date = formatDate(article.publishedAt || article.createdAt);
+
+  const content = body
+    ? formatArticleBody(body)
+    : `<p>O conteúdo completo em português ainda não foi disponibilizado pela API. Consulte a fonte original enquanto a matéria é corrigida.</p>`;
+
+  panel.innerHTML = `
+    ${image ? `
+      <img
+        src="${escapeHTML(image)}"
+        alt="${escapeHTML(title)}"
+        class="article-hero-image"
+        loading="eager"
+        onerror="this.style.display='none'"
+      >
+    ` : ""}
+
+    <div class="eyebrow">${escapeHTML(article.category || "Notícias")}</div>
+
+    <h1>${escapeHTML(title)}</h1>
+
+    <div class="article-meta">
+      <span>Publicado: ${escapeHTML(date)}</span>
+      <span>O Seu Radar</span>
+    </div>
+
+    ${excerpt ? `
+      <div class="article-lead-box">
+        ${escapeHTML(excerpt)}
+      </div>
+    ` : ""}
+
+    <div class="article-body">
+      ${content}
+    </div>
+
+    <div class="article-source">
+      <strong>Fonte original:</strong>
+      ${escapeHTML(article.sourceName || "Não informada")}
+      ${sourceUrl ? `
+        · <a href="${escapeHTML(sourceUrl)}" target="_blank" rel="noopener noreferrer">
+          Consultar publicação original ↗
+        </a>
+      ` : ""}
+    </div>
+
+    <a class="btn btn-primary article-back" href="#inicio">
       ← Voltar às notícias
     </a>
-  </div>
-`;
+  `;
 }
-function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+  function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 renderArticles();
 document.getElementById("searchInput").addEventListener("input",e=>{searchTerm=e.target.value.toLowerCase().trim();renderArticles()});
 document.querySelectorAll(".filter").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".filter").forEach(x=>x.classList.remove("active"));b.classList.add("active");activeFilter=b.dataset.filter;renderArticles()}));
