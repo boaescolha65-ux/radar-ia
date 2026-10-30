@@ -267,10 +267,9 @@
         "muted"
       );
 
-      addTextElement(card, "h2", article.title);
-      addTextElement(card, "p", article.excerpt);
-      addTextElement(card, "p", article.body);
-
+      addTextElement(card, "h2", article.titlePt || article.title);
+addTextElement(card, "p", article.excerptPt || article.excerpt);
+addTextElement(card, "p", article.bodyPt || article.body);
       addTextElement(
         card,
         "p",
