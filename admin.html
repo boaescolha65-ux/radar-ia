@@ -379,7 +379,7 @@ addTextElement(card, "p", article.bodyPt || article.body);
         result.status,
         "success"
       );
-
+busy = false;
       await loadArticles();
     } catch (error) {
       showMessage(error.message, "error");
