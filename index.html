@@ -73,8 +73,7 @@
         <div class="section-head" style="margin-top:42px"><div><h2>Mais para entender</h2><p>Selecione um tema ou pesquise para encontrar um artigo.</p></div></div>
         <div class="article-grid" id="articleGrid" aria-live="polite"></div>
         <div class="trust-strip"><div><span class="trust-icon">✓</span><div><b>Clareza antes de tudo</b><p>Explicações em linguagem acessível, sem perder as nuances importantes.</p></div></div><div><span class="trust-icon">◎</span><div><b>Transparência com IA</b><p>O uso de IA deve ser identificado e o conteúdo relevante precisa de revisão humana.</p></div></div><div><span class="trust-icon">↗</span><div><b>Fontes verificáveis</b><p>Cada artigo exibe a fonte original quando o link está disponível.</p></div></div></div>
-        <section class="newsletter"><div><h2>Informação boa merece circular.</h2><p>A newsletter será ativada quando o serviço de envio estiver configurado.</p></div><form class="newsletter-form" id="newsletterForm"><input type="email" id="newsletterEmail" placeholder="Seu melhor e-mail" aria-label="Seu e-mail" required><button class="btn btn-primary" type="submit">Quero receber ↗</button></form></section>
-      </section>
+       </section>
     </main>
   </div>
   <section class="page-section" id="sobre"><div class="page-intro"><div class="container"><div class="eyebrow">NOSSA MISSÃO</div><h1>Informação para todos.</h1><p>O Seu Radar nasceu com uma ideia simples: transformar assuntos complexos em explicações acessíveis, sem abrir mão de transparência, contexto e responsabilidade.</p></div></div><div class="container" style="padding-top:34px"><div class="content-panel"><h2>Como O Seu Radar funciona</h2><p>O projeto foi pensado para reunir notícias de fontes identificáveis, organizar os principais acontecimentos e usar inteligência artificial para resumir e explicar o contexto em linguagem simples.</p><p><strong>Como funciona:</strong> o site carrega os artigos publicados pela API do O Seu Radar. A automação de coleta e o uso de IA não substituem a checagem editorial. Consulte a fonte original sempre que disponível.</p><h2 style="margin-top:26px">Nosso compromisso editorial</h2><p>Separar fatos de opinião, apresentar links para fontes originais, indicar quando houver conteúdo produzido ou auxiliado por IA, corrigir erros e evitar publicar informações não verificadas.</p><a class="btn btn-primary" href="#contato" data-page="contato">Fale com a equipe</a></div></div></section>
@@ -229,7 +228,6 @@ document.getElementById("contactForm").addEventListener("submit",e=>{
  const mailto="mailto:boaescolha65@gmail.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
  window.location.href=mailto;
 });
-  document.getElementById("newsletterForm").addEventListener("submit",e=>{e.preventDefault();alert("A newsletter ainda não está conectada a um serviço de envio. Nenhum e-mail foi cadastrado.");});
 document.getElementById("year").textContent=new Date().getFullYear();
 async function refreshArticles(){
  const status=document.getElementById("updateStatus");
