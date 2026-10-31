@@ -98,7 +98,7 @@
 <script>
 const CONFIG = {
   // Substitua pelo número oficial em formato internacional, somente números.
-  whatsappNumber: "",
+  whatsappNumber: "5511973440381",
   whatsappMessage: "Olá! Gostaria de falar com a equipe do O Seu Radar.",
   // Quando a API estiver implantada, disponibilize uma lista JSON neste caminho.
   articlesEndpoint: "https://radar-ia-api.boaescolha65.workers.dev/api/articles.json?limit=100",
@@ -217,8 +217,19 @@ window.addEventListener("popstate",routeFromHash);
 window.addEventListener("hashchange",routeFromHash);
 function waUrl(){return "https://wa.me/"+CONFIG.whatsappNumber+"?text="+encodeURIComponent(CONFIG.whatsappMessage)}
 document.getElementById("floatingWhatsapp").href=waUrl();document.getElementById("contactWhatsapp").href=waUrl();
-document.getElementById("contactForm").addEventListener("submit",e=>{e.preventDefault();alert("O formulário está pronto visualmente, mas o destino de e-mail ainda precisa ser configurado. Conecte um serviço de formulários ou informe o e-mail oficial do O Seu Radar para ativar o envio.");});
-document.getElementById("newsletterForm").addEventListener("submit",e=>{e.preventDefault();alert("A newsletter ainda não está conectada a um serviço de envio. Nenhum e-mail foi cadastrado.");});
+document.getElementById("contactForm").addEventListener("submit",e=>{
+ e.preventDefault();
+ const form=e.currentTarget;
+ if(!form.reportValidity())return;
+ const name=document.getElementById("contactName").value.trim();
+ const email=document.getElementById("contactEmail").value.trim();
+ const subject=document.getElementById("contactSubject").value.trim();
+ const message=document.getElementById("contactMessage").value.trim();
+ const body="Nome: "+name+"\nE-mail para resposta: "+email+"\n\nMensagem:\n"+message;
+ const mailto="mailto:boaescolha65@gmail.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+ window.location.href=mailto;
+});
+  document.getElementById("newsletterForm").addEventListener("submit",e=>{e.preventDefault();alert("A newsletter ainda não está conectada a um serviço de envio. Nenhum e-mail foi cadastrado.");});
 document.getElementById("year").textContent=new Date().getFullYear();
 async function refreshArticles(){
  const status=document.getElementById("updateStatus");
