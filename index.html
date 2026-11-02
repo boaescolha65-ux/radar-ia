@@ -538,10 +538,8 @@ grid.innerHTML = filtered.length
           </span>
         </div>
 
-        <h3>${escapeHTML(getTitle(a) || "Sem título")}</h3>
-
-        <div class="article-bottom">
-          <span>
+      <h3>${escapeHTML(getTitle(a)||"Sem título")}</h3><div class="article-bottom">    
+      <span>
             ${escapeHTML(formatDate(
               a.publishedAt ||
               a.published_at ||
