@@ -181,7 +181,27 @@ function renderBody(body){
 function renderHighlights(article) {
   return "";
 }function formatDate(value){if(!value)return "Data não informada";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString("pt-BR");}
-function renderArticleDetail(id) {
+function getBody(article) {
+  if (!article) return "";
+
+  const fields = [
+    article.body_pt,
+    article.bodyPt,
+    article.body,
+    article.content_pt,
+    article.contentPt,
+    article.content
+  ];
+
+  for (const value of fields) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return "O conteúdo completo desta notícia ainda não está disponível. Consulte a fonte original.";
+}
+  function renderArticleDetail(id) {
   const article = articles.find(a => String(a.id) === String(id));
   const panel = document.getElementById("articleDetail");
 
