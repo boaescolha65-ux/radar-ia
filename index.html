@@ -936,6 +936,259 @@
       .footer-grid > div:first-child { grid-column: auto; }
       .hero h1 { font-size: 36px; }
     }
+    
+/* =====================================================
+   O SEU RADAR — LEITURA PROFISSIONAL DE NOTÍCIAS
+   Aplicação exclusiva ao painel da notícia aberta
+   ===================================================== */
+
+/* Área principal da notícia */
+#panel:has(.eyebrow) {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 34px 30px 70px;
+  color: #263442;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+/* Categoria e identificação editorial */
+#panel:has(.eyebrow) .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 7px 12px;
+  border-radius: 4px;
+  background: #eaf1f8;
+  color: #245b89;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+/* Manchete principal */
+#panel:has(.eyebrow) h1 {
+  max-width: 850px;
+  margin: 0 0 20px;
+  color: #172536;
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(30px, 4.2vw, 43px);
+  font-weight: 800;
+  line-height: 1.19;
+  letter-spacing: -1.3px;
+  overflow-wrap: break-word;
+}
+
+/* Subtítulo e linha fina */
+#panel:has(.eyebrow) .subtitle,
+#panel:has(.eyebrow) .article-subtitle,
+#panel:has(.eyebrow) .excerpt {
+  max-width: 790px;
+  margin: 0 0 24px;
+  color: #667586;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+/* Informações da publicação */
+#panel:has(.eyebrow) .article-meta,
+#panel:has(.eyebrow) .meta,
+#panel:has(.eyebrow) .byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 22px 0 26px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e2e7ec;
+  color: #778493;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Imagem principal */
+#panel:has(.eyebrow) img {
+  display: block;
+  width: 100%;
+  max-height: 490px;
+  margin: 28px 0 14px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+/* Legenda da imagem */
+#panel:has(.eyebrow) figure {
+  margin: 28px 0 34px;
+}
+
+#panel:has(.eyebrow) figcaption {
+  margin-top: 10px;
+  color: #7c8792;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Corpo da reportagem */
+#panel:has(.eyebrow) .article-body {
+  max-width: 740px;
+  margin: 38px auto 0;
+  color: #303b46;
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.9;
+  overflow-wrap: break-word;
+}
+
+/* Parágrafos: espaçamento editorial */
+#panel:has(.eyebrow) .article-body p,
+#panel:has(.eyebrow) > p {
+  margin: 0 0 25px;
+  color: #303b46;
+  font-size: 18px;
+  line-height: 1.9;
+  text-align: left;
+}
+
+/* Primeiro parágrafo */
+#panel:has(.eyebrow) .article-body p:first-child {
+  color: #273747;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+/* Subtítulos internos da reportagem */
+#panel:has(.eyebrow) .article-body h2,
+#panel:has(.eyebrow) .article-body h3,
+#panel:has(.eyebrow) > h2,
+#panel:has(.eyebrow) > h3 {
+  margin: 42px 0 17px;
+  color: #1d3042;
+  font-family: "Manrope", sans-serif;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: -0.4px;
+}
+
+/* Links no texto */
+#panel:has(.eyebrow) .article-body a {
+  color: #1769aa;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: #a9c8e2;
+  text-underline-offset: 3px;
+}
+
+#panel:has(.eyebrow) .article-body a:hover {
+  color: #104b7b;
+}
+
+/* Citações */
+#panel:has(.eyebrow) .article-body blockquote {
+  margin: 32px 0;
+  padding: 18px 24px;
+  border-left: 4px solid #3679ad;
+  border-radius: 0 6px 6px 0;
+  background: #f2f6fa;
+  color: #35485b;
+  font-size: 19px;
+  line-height: 1.7;
+}
+
+/* Listas */
+#panel:has(.eyebrow) .article-body ul,
+#panel:has(.eyebrow) .article-body ol {
+  margin: 20px 0 28px;
+  padding-left: 28px;
+  color: #303b46;
+  line-height: 1.85;
+}
+
+#panel:has(.eyebrow) .article-body li {
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+/* Negritos */
+#panel:has(.eyebrow) .article-body strong {
+  color: #1c3043;
+  font-weight: 750;
+}
+
+/* Separadores */
+#panel:has(.eyebrow) .article-body hr {
+  margin: 35px 0;
+  border: 0;
+  border-top: 1px solid #e1e6eb;
+}
+
+/* Responsividade para celulares */
+@media (max-width: 640px) {
+  #panel:has(.eyebrow) {
+    padding: 24px 19px 48px;
+  }
+
+  #panel:has(.eyebrow) .eyebrow {
+    margin-bottom: 15px;
+    font-size: 10px;
+  }
+
+  #panel:has(.eyebrow) h1 {
+    margin-bottom: 16px;
+    font-size: 29px;
+    line-height: 1.22;
+    letter-spacing: -0.7px;
+  }
+
+  #panel:has(.eyebrow) .subtitle,
+  #panel:has(.eyebrow) .article-subtitle,
+  #panel:has(.eyebrow) .excerpt {
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  #panel:has(.eyebrow) img {
+    max-height: 280px;
+    margin: 22px 0 12px;
+    border-radius: 7px;
+  }
+
+  #panel:has(.eyebrow) .article-body {
+    margin-top: 28px;
+    font-size: 17px;
+    line-height: 1.85;
+  }
+
+  #panel:has(.eyebrow) .article-body p,
+  #panel:has(.eyebrow) > p {
+    margin-bottom: 22px;
+    font-size: 17px;
+    line-height: 1.85;
+  }
+
+  #panel:has(.eyebrow) .article-body p:first-child {
+    font-size: 18px;
+  }
+
+  #panel:has(.eyebrow) .article-body h2,
+  #panel:has(.eyebrow) .article-body h3 {
+    margin-top: 34px;
+    font-size: 22px;
+  }
+}
+
+/* Preferência por menos movimento */
+@media (prefers-reduced-motion: no-preference) {
+  #panel:has(.eyebrow) a {
+    transition: color 0.2s ease;
+  }
+}
+
   </style>
 
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1493087992822593" crossorigin="anonymous"></script>
