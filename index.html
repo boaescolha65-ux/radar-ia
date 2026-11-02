@@ -234,6 +234,139 @@
     font-size: 21px;
   }
 }
+    ```css
+/* AJUSTE FINO — DESTAQUE PRINCIPAL */
+
+#featuredGrid {
+  max-width: 1180px;
+  margin: 0 auto;
+  align-items: stretch;
+  gap: 24px;
+}
+
+#featuredGrid .feature-card {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  height: 100%;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e1e6ed;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(31, 45, 61, 0.07);
+}
+
+#featuredGrid .feature-photo {
+  display: block;
+  width: 100%;
+  height: 220px;
+  max-height: 220px;
+  flex-shrink: 0;
+  object-fit: cover;
+  object-position: center;
+}
+
+#featuredGrid .feature-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  min-width: 0;
+}
+
+#featuredGrid .feature-content .tag {
+  display: inline-block;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+#featuredGrid .feature-content h3 {
+  width: 100%;
+  margin: 0 0 14px;
+  font-size: clamp(25px, 2.5vw, 33px);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+#featuredGrid .feature-content > p {
+  width: 100%;
+  margin: 0 0 18px;
+  line-height: 1.75;
+}
+
+#featuredGrid .feature-content .meta {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #e8ecf1;
+}
+
+#featuredGrid .feature-content > p:last-child {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
+#featuredGrid .feature-content .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 18px;
+  border-radius: 6px;
+}
+
+/* Alinhamento das notícias secundárias */
+#featuredGrid .feature-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: stretch;
+  gap: 20px;
+  min-width: 0;
+}
+
+#featuredGrid .side-card {
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Tablet */
+@media (max-width: 950px) {
+  #featuredGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #featuredGrid .feature-photo {
+    height: 240px;
+    max-height: 240px;
+  }
+}
+
+/* Celular */
+@media (max-width: 600px) {
+  #featuredGrid {
+    gap: 18px;
+  }
+
+  #featuredGrid .feature-photo {
+    height: 175px;
+    max-height: 175px;
+  }
+
+  #featuredGrid .feature-content {
+    padding: 19px;
+  }
+
+  #featuredGrid .feature-content h3 {
+    font-size: 26px;
+  }
+
+  #featuredGrid .feature-side {
+    gap: 16px;
+  }
+}
+```
   </style>
 </head>
 <body>
