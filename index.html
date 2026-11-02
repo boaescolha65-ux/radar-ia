@@ -377,12 +377,10 @@
 #featuredGrid .side-card p {
   display: none !important;
 }
- ```css
 #articleGrid .article-card .article-card-content > p,
 #articleGrid .article-card .article-card-content > div:not(.article-top):not(.article-bottom) {
   display: none !important;
 }
-```
 </style>
 </head>
 <body>
@@ -464,7 +462,6 @@ const CONFIG = {
 let articles = [], activeFilter = "Todos", searchTerm = "";
 const grid = document.getElementById("articleGrid");
 function getTitle(a){return String(a?.titlePt||a?.title_pt||a?.title||"").trim();}
-```javascript
 function getExcerpt(a) {
   const texto = String(
     a?.excerptPt || a?.excerpt_pt || a?.excerpt || ""
@@ -474,7 +471,6 @@ function getExcerpt(a) {
 
   return texto.slice(0, 177).trimEnd() + "...";
 }
-```
   function getImage(a){const value=String(a?.imageUrl||a?.image_url||a?.image||"").trim();try{const u=new URL(value,location.href);return /^https?:$/.test(u.protocol)?u.href:"";}catch{return "";}}
 function imageMarkup(a,detail=false){
  const image=getImage(a), label=escapeHTML(getTitle(a)||"O Seu Radar");
