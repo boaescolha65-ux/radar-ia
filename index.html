@@ -515,10 +515,9 @@ function renderArticles(){
    const text=`${getTitle(a)} ${getExcerpt(a)} ${category}`.toLowerCase();
    return (activeFilter==="Todos"||category===activeFilter)&&text.includes(searchTerm);
  });
- grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card">${imageMarkup(a)}<div class="article-card-content"><div class="article-top"><span class="category">${escapeHTML(a.category||"Geral")}</span><span class="read-time">${escapeHTML(a.sourceName||a.source_name||"Fonte original")}</span></div>```javascript
-<h3>${escapeHTML(getTitle(a)||"Sem título")}</h3><div class="article-bottom">
-```<span>${escapeHTML(formatDate(a.publishedAt||a.published_at||a.createdAt||a.created_at))}</span><a href="#artigo/${encodeURIComponent(a.id)}" class="article-read" data-article-id="${escapeHTML(a.id)}">Ler artigo completo ↗</a></div></div></article>`).join("") : '<div class="empty">Nenhum artigo publicado encontrado para este filtro. As notícias aparecem aqui depois de serem aprovadas pela equipe editorial.</div>';
- activateImageFallback(grid);
+ ```javascript
+grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card">${imageMarkup(a)}<div class="article-card-content"><div class="article-top"><span class="category">${escapeHTML(a.category||"Geral")}</span><span class="read-time">${escapeHTML(a.sourceName||a.source_name||"Fonte original")}</span></div><h3>${escapeHTML(getTitle(a)||"Sem título")}</h3><div class="article-bottom"><span>${escapeHTML(formatDate(a.publishedAt||a.published_at||a.createdAt||a.created_at))}</span><a href="#artigo/${encodeURIComponent(a.id)}" class="article-read" data-article-id="${escapeHTML(a.id)}">Ler artigo completo ↗</a></div></div></article>`).join("") : '<div class="empty">Nenhum artigo publicado encontrado para este filtro. As notícias aparecem aqui depois de serem aprovadas pela equipe editorial.</div>';
+```
  renderFeatured();
  renderBriefing();
 }
