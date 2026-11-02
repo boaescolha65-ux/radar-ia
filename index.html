@@ -488,8 +488,11 @@ const CONFIG = {
 let articles = [], activeFilter = "Todos", searchTerm = "";
 const grid = document.getElementById("articleGrid");
 function getTitle(a){return String(a?.titlePt||a?.title_pt||a?.title||"").trim();}
-function getExcerpt(a){return String(a?.excerptPt||a?.excerpt_pt||a?.excerpt||"").trim();}
-function getImage(a){const value=String(a?.imageUrl||a?.image_url||a?.image||"").trim();try{const u=new URL(value,location.href);return /^https?:$/.test(u.protocol)?u.href:"";}catch{return "";}}
+```javascript
+function getExcerpt(a) {
+  return "";
+}
+```function getImage(a){const value=String(a?.imageUrl||a?.image_url||a?.image||"").trim();try{const u=new URL(value,location.href);return /^https?:$/.test(u.protocol)?u.href:"";}catch{return "";}}
 function imageMarkup(a,detail=false){
  const image=getImage(a), label=escapeHTML(getTitle(a)||"O Seu Radar");
  const category=escapeHTML(a?.category||"Notícias");
