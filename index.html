@@ -401,6 +401,12 @@
 #articleGrid .article-card-content .article-bottom {
   display: block;
 }
+    /* Página inicial: esconder textos longos dos cards */
+#articleGrid .article-card-content > p,
+#featuredGrid .feature-content > p:not(:has(a)),
+#featuredGrid .side-card p {
+  display: none !important;
+}
 </style>
 </head>
 <body>
@@ -524,18 +530,68 @@ function renderFeatured(){
  const side=top.slice(1).map((a,i)=>`<article class="side-card"><div><div class="side-top"><span class="tag ${i===1?'green':''}">${escapeHTML(a.category||"Notícias")}</span><span class="read-time">${escapeHTML(formatDate(a.publishedAt||a.published_at||a.createdAt||a.created_at))}</span></div><h3><a href="#artigo/${encodeURIComponent(a.id)}" data-article-id="${escapeHTML(a.id)}">${escapeHTML(getTitle(a)||"Notícia")}</a></h3><p>${escapeHTML(getExcerpt(a)||"Leia os principais detalhes desta notícia.")}</p></div><a class="text-link" href="#artigo/${encodeURIComponent(a.id)}" data-article-id="${escapeHTML(a.id)}">Ler notícia ↗</a></article>`).join("");
  box.innerHTML=mainCard+(side?`<div class="feature-side">${side}</div>`:'');
 }
-function renderArticles(){
- const filtered=sortedArticles().filter(a=>{
-   const category=String(a.category||"Geral");
-   const text=`${getTitle(a)} ${getExcerpt(a)} ${category}`.toLowerCase();
-   return (activeFilter==="Todos"||category===activeFilter)&&text.includes(searchTerm);
- });
-grid.innerHTML = filtered.length ? filtered.map(a=>`<article class="article-card">${imageMarkup(a)}<div class="article-card-content"><div class="article-top"><span class="category">${escapeHTML(a.category||"Geral")}</span><span class="read-time">${escapeHTML(a.sourceName||a.source_name||"Fonte original")}</span></div><h3>${escapeHTML(getTitle(a)||"Sem título")}</h3><div class="article-bottom"><span>${escapeHTML(formatDate(a.publishedAt||a.published_at||a.createdAt||a.created_at))}</span><a href="#artigo/${encodeURIComponent(a.id)}" class="article-read" data-article-id="${escapeHTML(a.id)}">Ler artigo completo ↗</a></div></div></article>`).join("") : '<div class="empty">Nenhum artigo publicado encontrado para este filtro. As notícias aparecem aqui depois de serem aprovadas pela equipe editorial.</div>';
- activateImageFallback(grid);
- renderFeatured();
- renderBriefing();
+function renderArticles() {
+  const filtered = sortedArticles().filter(a => {
+    const category = String(a.category || "Geral");
+    const text = `${getTitle(a)} ${getExcerpt(a)} ${category}`.toLowerCase();
+
+    return (
+      (activeFilter === "Todos" || category === activeFilter) &&
+      text.includes(searchTerm)
+    );
+  });
+
+  grid.innerHTML = filtered.length
+    ? filtered.map(a => `
+      <article class="article-card">
+        ${imageMarkup(a)}
+
+        <div class="article-card-content">
+          <div class="article-top">
+            <span class="category">
+              ${escapeHTML(a.category || "Geral")}
+            </span>
+
+            <span class="read-time">
+              ${escapeHTML(a.sourceName || a.source_name || "Fonte original")}
+            </span>
+          </div>
+
+          <h3>${escapeHTML(getTitle(a) || "Sem título")}</h3>
+
+          <div class="article-bottom">
+            <span>
+              ${escapeHTML(formatDate(
+                a.publishedAt ||
+                a.published_at ||
+                a.createdAt ||
+                a.created_at
+              ))}
+            </span>
+
+            <a
+              href="#artigo/${encodeURIComponent(a.id)}"
+              class="article-read"
+              data-article-id="${escapeHTML(a.id)}"
+            >
+              Ler artigo completo ↗
+            </a>
+          </div>
+        </div>
+      </article>
+    `).join("")
+    : `
+      <div class="empty">
+        Nenhum artigo publicado encontrado para este filtro.
+        As notícias aparecem aqui depois de serem aprovadas pela equipe editorial.
+      </div>
+    `;
+
+  activateImageFallback(grid);
+  renderFeatured();
+  renderBriefing();
 }
-function renderBody(body){
+  function renderBody(body){
  const lines=String(body||"").replace(/\r/g,"").split("\n");
  const output=[];let paragraph=[];let list=[];
  const flushParagraph=()=>{if(paragraph.length){output.push(`<p>${escapeHTML(paragraph.join(" ")).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")}</p>`);paragraph=[];}};
