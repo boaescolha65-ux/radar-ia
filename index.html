@@ -366,10 +366,16 @@
     gap: 16px;
   }
 }
-    ```css
-/* Ocultar apenas os resumos dos cards */
-#articleGrid .article-card-content > p,
-#featuredGrid .feature-content > p:not(:last-child),
+  ```css
+/* Ocultar textos de resumo dos cards */
+#articleGrid .article-card-content p {
+  display: none !important;
+}
+
+#featuredGrid .feature-content > p:not(:has(a)) {
+  display: none !important;
+}
+
 #featuredGrid .side-card p {
   display: none !important;
 }
