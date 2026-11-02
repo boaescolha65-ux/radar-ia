@@ -571,6 +571,12 @@ grid.innerHTML = filtered.length
 activateImageFallback(grid);
 renderFeatured();
 renderBriefing();
+  activateImageFallback(grid);
+renderFeatured();
+renderBriefing();
+
+grid.querySelectorAll(".article-card-content > p")
+  .forEach(p => p.remove());
 }
 
   function renderBody(body){
