@@ -178,14 +178,9 @@ function renderBody(body){
  flushParagraph();flushList();
  return output.join("")||`<p>${escapeHTML(body||"O conteúdo completo não está disponível. Consulte a fonte original.")}</p>`;
 }
-function renderHighlights(article){
- const excerpt=getExcerpt(article);const body=getBody(article);
- const candidates=body.split(/(?<=[.!?])\s+|\n+/).map(x=>x.replace(/^#+\s*/,"").replace(/^[-*•]\s*/,"").trim()).filter(x=>x.length>=45&&x.length<=260);
- const points=[];if(excerpt&&excerpt.length>15)points.push(excerpt);for(const point of candidates){if(points.length>=3)break;if(!points.some(p=>p===point))points.push(point);}
- if(!points.length)return "";
- return `<section class="article-highlights"><h2>O que importa saber</h2><ul>${points.slice(0,3).map(p=>`<li>${escapeHTML(p)}</li>`).join("")}</ul></section>`;
-}
-function formatDate(value){if(!value)return "Data não informada";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString("pt-BR");}
+function renderHighlights(article) {
+  return "";
+}function formatDate(value){if(!value)return "Data não informada";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString("pt-BR");}
 function renderArticleDetail(id){
  const article=articles.find(a=>String(a.id)===String(id));
  const panel=document.getElementById("articleDetail");
