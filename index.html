@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1424">
-  <meta name="description" content="O Seu Radar: notícias e novidades sobre inteligência artificial, tecnologia, Brasil e mundo, em linguagem clara e acessível.">
+  <meta name="description" content="O Seu Radar: notícias e novidades sobre tecnologia, Brasil e mundo, em linguagem clara e acessível.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://oseuradar.com.br/">
   <title>O Seu Radar | Inteligência artificial e tecnologia</title>
@@ -1261,14 +1261,21 @@
             </div>
           </div>
 
-          <div class="news-tools">
-            <div class="filters" id="filters" aria-label="Filtrar notícias">
-              <button class="filter-button active" data-filter="Todos">Todas</button>
-              <button class="filter-button" data-filter="Brasil">Brasil</button>
-              <button class="filter-button" data-filter="Mundo">Mundo</button>
-              <button class="filter-button" data-filter="Tecnologia">Tecnologia</button>
-              <button class="filter-button" data-filter="IA">Inteligência artificial</button>
-            </div>
+         
+<div class="news-tools">
+  <div class="filters" id="filters" aria-label="Filtrar notícias">
+    <button class="filter-button active" data-filter="Todos">Todas</button>
+    <button class="filter-button" data-filter="Brasil">Brasil</button>
+    <button class="filter-button" data-filter="Mundo">Mundo</button>
+    <button class="filter-button" data-filter="Economia">Economia</button>
+    <button class="filter-button" data-filter="Tecnologia">Tecnologia</button>
+    <button class="filter-button" data-filter="Ciência">Ciência</button>
+    <button class="filter-button" data-filter="Saúde">Saúde</button>
+    <button class="filter-button" data-filter="Esportes">Esportes</button>
+    <button class="filter-button" data-filter="Entretenimento">Entretenimento</button>
+  </div>
+</div>
+
 
             <label class="search-box">
               <span class="search-icon">⌕</span>
@@ -1519,17 +1526,59 @@
       return String(firstValue(article, ["titlePt", "title_pt", "title"]) || "Notícia sem título").trim();
     }
 
-    function getCategory(article) {
-      const raw = String(firstValue(article, ["category", "categoria"]) || "Tecnologia").trim();
-      const normalized = raw.toLowerCase();
+    
+function getCategory(article) {
+  const raw = String(
+    firstValue(article, ["category", "categoria"]) || "Geral"
+  ).trim();
 
-      if (normalized.includes("brasil")) return "Brasil";
-      if (normalized.includes("mundo") || normalized.includes("world")) return "Mundo";
-      if (normalized === "ia" || normalized.includes("inteligência") || normalized.includes("artificial")) return "IA";
-      if (normalized.includes("tecnologia") || normalized.includes("tech")) return "Tecnologia";
+  const normalized = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
-      return raw.charAt(0).toUpperCase() + raw.slice(1);
-    }
+  if (normalized.includes("brasil")) return "Brasil";
+
+  if (
+    normalized.includes("mundo") ||
+    normalized.includes("world") ||
+    normalized.includes("internacional")
+  ) return "Mundo";
+
+  if (
+    normalized.includes("economia") ||
+    normalized.includes("finance") ||
+    normalized.includes("negocio")
+  ) return "Economia";
+
+  if (
+    normalized.includes("saude") ||
+    normalized.includes("health")
+  ) return "Saúde";
+
+  if (
+    normalized.includes("ciencia") ||
+    normalized.includes("science")
+  ) return "Ciência";
+
+  if (
+    normalized.includes("tecnologia") ||
+    normalized.includes("technology") ||
+    normalized.includes("tech")
+  ) return "Tecnologia";
+
+  if (normalized.includes("esporte") || normalized.includes("sport")) {
+    return "Esportes";
+  }
+
+  if (
+    normalized.includes("entretenimento") ||
+    normalized.includes("entertainment")
+  ) return "Entretenimento";
+
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 
     function getImage(article) {
       const value = firstValue(article, ["imageUrl", "image_url", "image", "thumbnail"]);
@@ -1588,7 +1637,7 @@
     function renderCard(article) {
       const id = getId(article);
       const title = escapeHTML(getTitle(article));
-      const category = escapeHTML(getCategory(article));
+     const category = escapeHTML(getCategory(article));
       const source = escapeHTML(getSource(article));
       const date = escapeHTML(formatDate(article));
       const image = escapeHTML(getImage(article));
