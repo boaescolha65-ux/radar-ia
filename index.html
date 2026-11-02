@@ -377,36 +377,6 @@
 #featuredGrid .side-card p {
   display: none !important;
 }
-/* Ocultar blocos de texto longo nos cards de Mais para entender */
-#articleGrid .article-card-content p,
-#articleGrid .article-card-content .article-body,
-#articleGrid .article-card-content .article-text,
-#articleGrid .article-card-content .article-description,
-#articleGrid .article-card-content .article-excerpt {
-  display: none !important;
-}
-  
-/* Correção definitiva: cards de “Mais para entender” mostram título e metadados, nunca o corpo/resumo. */
-#articleGrid .article-card-content > p,
-#articleGrid .article-card-content .article-body,
-#articleGrid .article-card-content .article-text,
-#articleGrid .article-card-content .article-description,
-#articleGrid .article-card-content .article-excerpt,
-#articleGrid .article-card-content .excerpt,
-#articleGrid .article-card-content .summary {
-  display: none !important;
-}
-#articleGrid .article-card-content h3,
-#articleGrid .article-card-content .article-top,
-#articleGrid .article-card-content .article-bottom {
-  display: block;
-}
-    /* Página inicial: esconder textos longos dos cards */
-#articleGrid .article-card-content > p,
-#featuredGrid .feature-content > p:not(:has(a)),
-#featuredGrid .side-card p {
-  display: none !important;
-}
     ```css
 /* Remove textos descritivos dos cards de Mais para entender */
 #articleGrid .article-card p,
