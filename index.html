@@ -366,7 +366,63 @@
     gap: 16px;
   }
 }
-```
+/* CARDS: EXIBIR SOMENTE OS TÍTULOS */
+
+/* Cards das notícias */
+#articleGrid .article-card p,
+#articleGrid .article-card .article-top,
+#articleGrid .article-card .article-bottom,
+#articleGrid .article-card .article-image,
+#articleGrid .article-card .read-time,
+#articleGrid .article-card .category {
+  display: none !important;
+}
+
+/* Ajustar o espaço interno dos cards */
+#articleGrid .article-card-content {
+  padding: 18px 20px !important;
+}
+
+/* Títulos dos cards */
+#articleGrid .article-card h3 {
+  margin: 0 !important;
+  font-size: 19px !important;
+  line-height: 1.45 !important;
+}
+
+/* Destaque principal: manter apenas o título */
+#featuredGrid .feature-content > p,
+#featuredGrid .feature-content .tag,
+#featuredGrid .feature-content .meta,
+#featuredGrid .feature-photo,
+#featuredGrid .feature-art,
+#featuredGrid .feature-content .btn {
+  display: none !important;
+}
+
+/* Ajustar o card principal do destaque */
+#featuredGrid .feature-content {
+  padding: 22px !important;
+}
+
+#featuredGrid .feature-content h3 {
+  margin: 0 !important;
+  font-size: clamp(22px, 2.5vw, 30px) !important;
+  line-height: 1.4 !important;
+}
+
+/* Cards secundários do destaque */
+#featuredGrid .side-card p,
+#featuredGrid .side-card .meta,
+#featuredGrid .side-card .tag,
+#featuredGrid .side-card img {
+  display: none !important;
+}
+
+#featuredGrid .side-card h3 {
+  margin: 0 !important;
+  line-height: 1.45 !important;
+}
   </style>
 </head>
 <body>
