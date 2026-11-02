@@ -561,6 +561,8 @@ function renderArticles() {
       </article>
     `).join("")
     : `
+    grid.querySelectorAll(".article-card-content > p")
+  .forEach(p => p.remove());
       <div class="empty">
         Nenhum artigo publicado encontrado para este filtro.
         As notícias aparecem aqui depois de serem aprovadas pela equipe editorial.
