@@ -381,8 +381,12 @@
 }
 ```
 ```css
-/* Mais para entender: ocultar somente os resumos */
-#articleGrid .article-card-content > p {
+/* Ocultar blocos de texto longo nos cards de Mais para entender */
+#articleGrid .article-card-content p,
+#articleGrid .article-card-content .article-body,
+#articleGrid .article-card-content .article-text,
+#articleGrid .article-card-content .article-description,
+#articleGrid .article-card-content .article-excerpt {
   display: none !important;
 }
 ```
