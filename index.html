@@ -1520,6 +1520,7 @@
     }
 
     
+
 function getCategory(article) {
   const raw = String(
     firstValue(article, ["category", "categoria"]) || "Geral"
@@ -1530,49 +1531,26 @@ function getCategory(article) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-  if (normalized.includes("brasil")) return "Brasil";
-
+  // Categorias oficiais do portal
   if (
-    normalized.includes("mundo") ||
-    normalized.includes("world") ||
-    normalized.includes("internacional")
-  ) return "Mundo";
-
-  if (
-    normalized.includes("economia") ||
-    normalized.includes("finance") ||
-    normalized.includes("negocio")
-  ) return "Economia";
-
-  if (
-    normalized.includes("saude") ||
-    normalized.includes("health")
-  ) return "Saúde";
-
-  if (
-    normalized.includes("ciencia") ||
-    normalized.includes("science")
-  ) return "Ciência";
-
-  if (
-    normalized.includes("tecnologia") ||
-    normalized.includes("technology") ||
-    normalized.includes("tech")
-  ) return "Tecnologia";
-
-  if (normalized.includes("esporte") || normalized.includes("sport")) {
-    return "Esportes";
+    normalized.includes("inteligencia artificial") ||
+    normalized === "ia" ||
+    normalized.includes("artificial intelligence")
+  ) {
+    return "Inteligência Artificial";
   }
 
   if (
-    normalized.includes("entretenimento") ||
-    normalized.includes("entertainment")
-  ) return "Entretenimento";
+    normalized.includes("tecnologia da informacao") ||
+    normalized === "tecnologia" ||
+    normalized.includes("information technology") ||
+    normalized === "ti"
+  ) {
+    return "Tecnologia da Informação";
+  }
 
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
-
-
     function getImage(article) {
       const value = firstValue(article, ["imageUrl", "image_url", "image", "thumbnail"]);
       if (!value) return FALLBACK_IMAGE;
