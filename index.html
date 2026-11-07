@@ -2219,9 +2219,7 @@ function renderArticleDetail(article) {
         elements.lastUpdate.textContent = "Atualizado às " +
           state.lastLoaded.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-        elements.ticker.textContent = state.articles.length
-          ? `${state.articles.length} publicações disponíveis. Acompanhe as atualizações do O Seu Radar.`
-          : "Nenhuma publicação aprovada está disponível neste momento.";
+        elements.ticker.textContent = "Notícias novas a cada 15 min.";
 
         if (window.location.hash.startsWith("#noticia/")) {
           handleRoute();
