@@ -1863,54 +1863,171 @@ function getCategory(article) {
       return text.slice(0, max).replace(/\\s+\\S*$/, "") + "…";
     }
 
-    function getArticleUrl(article) {
-      const url = new URL("/", window.location.origin);
-      url.searchParams.set("noticia", String(getId(article)));
-      return url.href;
-    }
-
+   function getArticleUrl(article) {
+  const url = new URL("/", "https://oseuradar.com.br/");
+  url.searchParams.set("noticia", String(getId(article)));
+  return url.href;
+}
     function setMeta(name, content) {
       const element = document.getElementById(name);
       if (element) element.setAttribute("content", content);
     }
 
     function setArticleSEO(article) {
-      const title = getTitle(article);
-      const description = truncateText(getExcerpt(article) || getBody(article), 155);
-      const canonical = getArticleUrl(article);
-      document.title = title + " | O Seu Radar";
-      document.getElementById("pageDescription")?.setAttribute(
-        "content",
-        description || "Notícias de tecnologia da informação e inteligência artificial no Brasil e no mundo."
-      );
-      document.getElementById("pageCanonical")?.setAttribute("href", canonical);
-      setMeta("ogType", "article");
-      setMeta("ogTitle", title + " | O Seu Radar");
-      setMeta("ogDescription", description);
-      setMeta("ogUrl", canonical);
+  const title = getTitle(article);
 
-      const oldSchema = document.getElementById("articleStructuredData");
-      if (oldSchema) oldSchema.remove();
+  const description = truncateText(
+    getExcerpt(article) || getBody(article),
+    155
+  );
 
-      const published = getDate(article);
-      const schema = {
-        "@context": "https://schema.org",
-        "@type": "NewsArticle",
-        "headline": title,
-        "description": description,
-        "image": getImage(article),
-        "datePublished": published ? published.toISOString() : undefined,
-        "author": { "@type": "Organization", "name": "O Seu Radar" },
-        "publisher": { "@type": "Organization", "name": "O Seu Radar" },
-        "mainEntityOfPage": canonical
-      };
-      const script = document.createElement("script");
-      script.type = "application/ld+json";
-      script.id = "articleStructuredData";
-      script.textContent = JSON.stringify(schema);
-      document.head.appendChild(script);
+  const canonical = getArticleUrl(article);
+
+  const finalDescription = description ||
+    "Notícias de tecnologia da informação e inteligência artificial no Brasil e no mundo.";
+
+  // Imagem absoluta para os mecanismos de busca.
+  let image = getImage(article);
+
+  try {
+    image = new URL(
+      image,
+      "https://oseuradar.com.br/"
+    ).href;
+  } catch (_) {
+    image = "https://oseuradar.com.br/";
+  }
+
+  // Data original de publicação, quando disponível.
+  const publishedValue = firstValue(article, [
+    "publishedAt",
+    "published_at"
+  ]);
+
+  const publishedDate = publishedValue
+    ? new Date(publishedValue)
+    : null;
+
+  const validPublishedDate =
+    publishedDate &&
+    !Number.isNaN(publishedDate.getTime());
+
+  // Data de atualização, somente se realmente informada.
+  const modifiedValue = firstValue(article, [
+    "updatedAt",
+    "updated_at"
+  ]);
+
+  const modifiedDate = modifiedValue
+    ? new Date(modifiedValue)
+    : null;
+
+  const validModifiedDate =
+    modifiedDate &&
+    !Number.isNaN(modifiedDate.getTime());
+
+  // Fonte original.
+  let sourceUrl = "";
+
+  try {
+    const parsedUrl = new URL(
+      String(getSourceUrl(article) || ""),
+      "https://oseuradar.com.br"
+    );
+
+    if (
+      parsedUrl.protocol === "https:" ||
+      parsedUrl.protocol === "http:"
+    ) {
+      sourceUrl = parsedUrl.href;
     }
+  } catch (_) {}
 
+  // Título e descrição da página.
+  document.title = title + " | O Seu Radar";
+
+  document.getElementById("pageDescription")?.setAttribute(
+    "content",
+    finalDescription
+  );
+
+  document.getElementById("pageCanonical")?.setAttribute(
+    "href",
+    canonical
+  );
+
+  // Open Graph.
+  setMeta("ogType", "article");
+  setMeta("ogTitle", title + " | O Seu Radar");
+  setMeta("ogDescription", finalDescription);
+  setMeta("ogUrl", canonical);
+  setMeta("ogImage", image);
+
+  // Remove o Schema anterior para evitar duplicação.
+  const oldSchema = document.getElementById(
+    "articleStructuredData"
+  );
+
+  if (oldSchema) {
+    oldSchema.remove();
+  }
+
+  // Dados estruturados da notícia.
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+
+    "headline": title,
+    "description": finalDescription,
+
+    "image": [image],
+
+    "url": canonical,
+
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": canonical
+    },
+
+    "author": {
+      "@type": "Organization",
+      "name": "O Seu Radar",
+      "url": "https://oseuradar.com.br/"
+    },
+
+    "publisher": {
+      "@type": "Organization",
+      "name": "O Seu Radar",
+      "url": "https://oseuradar.com.br/"
+    },
+
+    "articleSection": getCategory(article),
+
+    "inLanguage": "pt-BR",
+
+    "isAccessibleForFree": true
+  };
+
+  if (validPublishedDate) {
+    schema.datePublished = publishedDate.toISOString();
+  }
+
+  if (validModifiedDate) {
+    schema.dateModified = modifiedDate.toISOString();
+  }
+
+  if (sourceUrl) {
+    schema.citation = sourceUrl;
+  }
+
+  const script = document.createElement("script");
+
+  script.type = "application/ld+json";
+  script.id = "articleStructuredData";
+  script.textContent = JSON.stringify(schema);
+
+  document.head.appendChild(script);
+}
     function resetHomeSEO() {
       document.getElementById("pageDescription")?.setAttribute(
         "content",
@@ -2178,9 +2295,30 @@ function renderArticleDetail(article) {
   const date = escapeHTML(formatDate(article));
   const image = escapeHTML(getImage(article));
   const excerpt = escapeHTML(getExcerpt(article));
-  const sourceUrl = getSourceUrl(article);
   const body = renderBody(getBody(article));
   const video = getVideo(article);
+
+  const publishedDate = getDate(article);
+  const dateTime = publishedDate
+    ? publishedDate.toISOString()
+    : "";
+
+  // Aceita somente links externos HTTP ou HTTPS.
+  let safeSourceUrl = "";
+
+  try {
+    const parsedUrl = new URL(
+      String(getSourceUrl(article) || ""),
+      "https://oseuradar.com.br"
+    );
+
+    if (
+      parsedUrl.protocol === "https:" ||
+      parsedUrl.protocol === "http:"
+    ) {
+      safeSourceUrl = escapeHTML(parsedUrl.href);
+    }
+  } catch (_) {}
 
   let media = "";
 
@@ -2206,10 +2344,11 @@ function renderArticleDetail(article) {
         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <source src="${escapeHTML(video.src)}">
       </video>
+
       <img
         class="detail-image"
         src="${image}"
-        alt=""
+        alt="${title}"
         style="display:none"
         onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}'"
       >
@@ -2219,7 +2358,8 @@ function renderArticleDetail(article) {
       <img
         class="detail-image"
         src="${image}"
-        alt=""
+        alt="${title}"
+        decoding="async"
         onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}'"
       >
     `;
@@ -2232,13 +2372,18 @@ function renderArticleDetail(article) {
 
     <div class="detail-meta">
       <span>${source}</span>
-      <span>·</span>
-      <time>${date}</time>
+      <span aria-hidden="true">·</span>
+      <time ${dateTime ? `datetime="${dateTime}"` : ""}>
+        ${date}
+      </time>
     </div>
 
     ${media}
 
-    ${excerpt ? `<p class="article-subtitle">${excerpt}</p>` : ""}
+    ${excerpt
+      ? `<p class="article-subtitle">${excerpt}</p>`
+      : ""
+    }
 
     <div class="article-detail-content">
       ${body}
@@ -2246,13 +2391,25 @@ function renderArticleDetail(article) {
 
     <div class="source-box">
       <strong>Fonte original:</strong>
-      ${sourceUrl
-        ? `<a href="${escapeHTML(sourceUrl)}" target="_blank" rel="noopener noreferrer">${source}</a>`
-        : source}
-      <p>O Seu Radar organiza e apresenta informações de fontes identificadas. Consulte a publicação original para acessar o contexto completo da fonte.</p>
+
+      ${safeSourceUrl
+        ? `<a
+             href="${safeSourceUrl}"
+             target="_blank"
+             rel="noopener noreferrer"
+           >${source}</a>`
+        : source
+      }
+
+      <p>
+        O Seu Radar apresenta conteúdo editorial sobre Tecnologia da
+        Informação e Inteligência Artificial, com identificação das
+        fontes utilizadas. Consulte a publicação original para conhecer
+        as informações diretamente na fonte.
+      </p>
     </div>
   `;
-}
+}   
     function showArticle(id) {
       const article = state.articles.find(item => String(getId(item)) === String(id));
 
