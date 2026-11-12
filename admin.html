@@ -430,24 +430,34 @@ function renderArticles(articles) {
 
       try {
         const response = await apiRequest("/admin/update-article", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            id: article.id,
-            title_pt: titleField.value.trim(),
-            excerpt_pt: excerptField.value.trim(),
-            body_pt: bodyField.value.trim()
-          })
-        });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    id: article.id,
+    title_pt: titleField.value.trim(),
+    excerpt_pt: excerptField.value.trim(),
+    body_pt: bodyField.value.trim()
+  })
+});
 
-        const result = await response.json();
+const result = (
+  response && typeof response.json === "function"
+)
+  ? await response.json()
+  : response;
 
-        if (!response.ok) {
-          throw new Error(result.error || "Não foi possível salvar.");
-        }
-
+if (
+  (response && typeof response.json === "function" && !response.ok) ||
+  !result ||
+  result.error ||
+  result.ok === false
+) {
+  throw new Error(
+    result?.error || "Não foi possível salvar as alterações."
+  );
+}
         alert(
           "Alterações salvas com sucesso. A notícia continua aguardando aprovação."
         );
