@@ -241,86 +241,242 @@
     return date.toLocaleString("pt-BR");
   }
 
-  function renderArticles(articles) {
-    articlesBox.replaceChildren();
-    summary.textContent =
-      articles.length + " notícia(s) aguardando revisão.";
+  
+function renderArticles(articles) {
+  articlesBox.replaceChildren();
+  summary.textContent =
+    articles.length + " notícia(s) aguardando revisão.";
 
-    if (!articles.length) {
-      addTextElement(
-        articlesBox,
-        "div",
-        "Nenhuma notícia pendente no momento.",
-        "panel"
-      );
-      return;
+  if (!articles.length) {
+    addTextElement(
+      articlesBox,
+      "div",
+      "Nenhuma notícia pendente no momento.",
+      "panel"
+    );
+    return;
+  }
+
+  articles.forEach(function (article) {
+    const card = document.createElement("article");
+    card.className = "article";
+
+    addTextElement(
+      card,
+      "p",
+      "ID " + article.id + " · " + (article.category || ""),
+      "muted"
+    );
+
+    addTextElement(
+      card,
+      "h2",
+      article.titlePt || article.title || ""
+    );
+
+    addTextElement(
+      card,
+      "p",
+      article.excerptPt || article.excerpt || ""
+    );
+
+    addTextElement(
+      card,
+      "p",
+      article.bodyPt || article.body || ""
+    );
+
+    addTextElement(
+      card,
+      "p",
+      "Fonte: " + (article.sourceName || article.source_name || "")
+    );
+
+    const sourceUrl = article.sourceUrl || article.source_url || "";
+
+    if (sourceUrl) {
+      try {
+        const parsedUrl = new URL(sourceUrl);
+
+        if (parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:") {
+          const link = document.createElement("a");
+          link.href = parsedUrl.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Abrir notícia original ↗";
+          card.appendChild(link);
+        }
+      } catch (error) {
+        console.warn("Link da fonte inválido:", sourceUrl);
+      }
     }
 
-    articles.forEach(function (article) {
-      const card = document.createElement("article");
-      card.className = "article";
+    addTextElement(
+      card,
+      "p",
+      "Publicada na fonte: " +
+        formatDate(article.publishedAt || article.published_at),
+      "muted"
+    );
 
-      addTextElement(
-        card,
-        "p",
-        "ID " + article.id + " · " + article.category,
-        "muted"
-      );
+    addTextElement(
+      card,
+      "p",
+      "Recebida pelo Radar: " +
+        formatDate(article.createdAt || article.created_at),
+      "muted"
+    );
 
-      addTextElement(card, "h2", article.titlePt || article.title);
-addTextElement(card, "p", article.excerptPt || article.excerpt);
-addTextElement(card, "p", article.bodyPt || article.body);
-      addTextElement(
-        card,
-        "p",
-        "Fonte: " + article.source_name
-      );
+    const actions = document.createElement("div");
+    actions.className = "actions";
 
-      const link = document.createElement("a");
-      link.href = article.source_url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = "Abrir notícia original ↗";
-      card.appendChild(link);
+    const editButton = document.createElement("button");
+    editButton.className = "edit";
+    editButton.textContent = "Editar conteúdo";
 
-      addTextElement(
-        card,
-        "p",
-        "Publicada na fonte: " + formatDate(article.published_at),
-        "muted"
-      );
+    const approveButton = document.createElement("button");
+    approveButton.className = "approve";
+    approveButton.textContent = "Aprovar publicação";
 
-      addTextElement(
-        card,
-        "p",
-        "Recebida pelo Radar: " + formatDate(article.created_at),
-        "muted"
-      );
+    const rejectButton = document.createElement("button");
+    rejectButton.className = "reject";
+    rejectButton.textContent = "Rejeitar notícia";
 
-      const actions = document.createElement("div");
-      actions.className = "actions";
+    const editForm = document.createElement("form");
+    editForm.style.display = "none";
+    editForm.style.marginTop = "16px";
 
-      const approveButton = document.createElement("button");
-      approveButton.className = "approve";
-      approveButton.textContent = "Aprovar publicação";
+    function createField(labelText, value, multiline) {
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      label.style.display = "block";
+      label.style.marginBottom = "12px";
 
-      approveButton.addEventListener("click", function () {
-        reviewArticle(article.id, "approve", approveButton, rejectButton);
-      });
+      const field = multiline
+        ? document.createElement("textarea")
+        : document.createElement("input");
 
-      const rejectButton = document.createElement("button");
-      rejectButton.className = "reject";
-      rejectButton.textContent = "Rejeitar notícia";
+      field.value = value || "";
+      field.required = !multiline || labelText === "Reportagem";
+      field.style.display = "block";
+      field.style.width = "100%";
+      field.style.boxSizing = "border-box";
+      field.style.marginTop = "6px";
+      field.style.padding = "10px";
 
-      rejectButton.addEventListener("click", function () {
-        reviewArticle(article.id, "reject", approveButton, rejectButton);
-      });
+      if (multiline) {
+        field.rows = labelText === "Reportagem" ? 14 : 4;
+      }
 
-      actions.append(approveButton, rejectButton);
-      card.appendChild(actions);
-      articlesBox.appendChild(card);
+      label.appendChild(field);
+      editForm.appendChild(label);
+
+      return field;
+    }
+
+    const titleField = createField(
+      "Título",
+      article.titlePt || article.title_pt || article.title || "",
+      false
+    );
+
+    const excerptField = createField(
+      "Resumo",
+      article.excerptPt || article.excerpt_pt || article.excerpt || "",
+      true
+    );
+
+    const bodyField = createField(
+      "Reportagem",
+      article.bodyPt || article.body_pt || article.body || "",
+      true
+    );
+
+    const formActions = document.createElement("div");
+    formActions.className = "actions";
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "submit";
+    saveButton.className = "approve";
+    saveButton.textContent = "Salvar alterações";
+
+    const cancelButton = document.createElement("button");
+    cancelButton.type = "button";
+    cancelButton.className = "reject";
+    cancelButton.textContent = "Cancelar";
+
+    formActions.append(saveButton, cancelButton);
+    editForm.appendChild(formActions);
+
+    editButton.addEventListener("click", function () {
+      editForm.style.display = "block";
+      editButton.style.display = "none";
+      approveButton.style.display = "none";
+      rejectButton.style.display = "none";
     });
-  }
+
+    cancelButton.addEventListener("click", function () {
+      editForm.style.display = "none";
+      editButton.style.display = "";
+      approveButton.style.display = "";
+      rejectButton.style.display = "";
+    });
+
+    editForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      saveButton.disabled = true;
+      saveButton.textContent = "Salvando...";
+
+      try {
+        const response = await apiRequest("/admin/update-article", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            id: article.id,
+            title_pt: titleField.value.trim(),
+            excerpt_pt: excerptField.value.trim(),
+            body_pt: bodyField.value.trim()
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Não foi possível salvar.");
+        }
+
+        alert(
+          "Alterações salvas com sucesso. A notícia continua aguardando aprovação."
+        );
+
+        await loadArticles();
+
+      } catch (error) {
+        alert(error.message || "Erro ao salvar as alterações.");
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = "Salvar alterações";
+      }
+    });
+
+    approveButton.addEventListener("click", function () {
+      reviewArticle(article.id, "approve", approveButton, rejectButton);
+    });
+
+    rejectButton.addEventListener("click", function () {
+      reviewArticle(article.id, "reject", approveButton, rejectButton);
+    });
+
+    actions.append(editButton, approveButton, rejectButton);
+
+    card.appendChild(actions);
+    card.appendChild(editForm);
+    articlesBox.appendChild(card);
+  });
+}
 
   async function loadArticles() {
     if (busy) return;
