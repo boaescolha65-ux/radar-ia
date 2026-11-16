@@ -2410,26 +2410,76 @@ function renderArticleDetail(article) {
     </div>
   `;
 }   
-    function showArticle(id) {
-      const article = state.articles.find(item => String(getId(item)) === String(id));
+    
+async function showArticle(id) {
+  const articleId = String(id);
+
+  // Evita que uma consulta anterior sobrescreva uma navegação mais recente.
+  const currentUrl = window.location.href;
+
+  let article = state.articles.find(
+    item => String(getId(item)) === articleId
+  );
+
+  if (!article) {
+    try {
+      const response = await fetch(
+        `${API_URL.split("?")[0]}?id=${encodeURIComponent(articleId)}`,
+        {
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          cache: "no-store"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Notícia não encontrada. HTTP " + response.status);
+      }
+
+      article = await response.json();
+
+      if (!article || String(getId(article)) !== articleId) {
+        throw new Error("A API retornou uma notícia diferente da solicitada.");
+      }
+
+      // Mantém a notícia disponível durante a sessão.
+      state.articles = [
+        ...state.articles.filter(
+          item => String(getId(item)) !== articleId
+        ),
+        article
+      ];
+
+    } catch (error) {
+      console.error("Erro ao buscar notícia individual:", error);
+
+      if (window.location.href !== currentUrl) return;
 
       elements.home.classList.add("hidden");
       elements.articlePage.classList.add("visible");
-      window.scrollTo({ top: 0, behavior: "instant" });
 
-      if (!article) {
-        elements.articleDetail.innerHTML = `
-          <div class="state-message">
-            <strong>Publicação não encontrada.</strong>
-            Ela pode ter sido removida ou não estar disponível na lista atual.
-            <br><br><a class="article-link" href="/">Voltar para o início</a>
-          </div>`;
-        return;
-      }
+      elements.articleDetail.innerHTML = `
+        <div class="state-message">
+          <strong>Não foi possível carregar esta publicação.</strong>
+          Ela pode não existir ou não estar disponível publicamente.
+          <br><br><a class="article-link" href="/">Voltar para o início</a>
+        </div>`;
 
-      renderArticleDetail(article);
-      setArticleSEO(article);
+      return;
     }
+  }
+
+  // Não renderiza uma notícia se o usuário já navegou para outra URL.
+  if (window.location.href !== currentUrl) return;
+
+  elements.home.classList.add("hidden");
+  elements.articlePage.classList.add("visible");
+
+  window.scrollTo({ top: 0, behavior: "instant" });
+
+  renderArticleDetail(article);
+  setArticleSEO(article);
+}
 
     function showHome() {
       elements.articlePage.classList.remove("visible");
