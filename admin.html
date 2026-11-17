@@ -179,7 +179,16 @@
         <textarea id="newExcerpt" rows="4" maxlength="2000" required></textarea>
 
         <label for="newBody">Reportagem completa</label>
-        <textarea id="newBody" rows="14" maxlength="50000" required></textarea>
+        <p class="muted" id="newBodyHelp">
+          Organize o texto em parágrafos e use títulos Markdown em linhas separadas:
+          <strong>#</strong> para subtítulos (H2),
+          <strong>##</strong> para seções (H3) e
+          <strong>###</strong> para subdivisões (H4).
+          O título principal da notícia já é gerado automaticamente como H1.
+        </p>
+        <textarea id="newBody" rows="14" maxlength="50000" required
+          aria-describedby="newBodyHelp"
+          placeholder="Introdução em um ou mais parágrafos.&#10;&#10;# Primeiro subtítulo&#10;&#10;Desenvolva o assunto com informações, contexto e exemplos.&#10;&#10;## Segunda seção&#10;&#10;Aprofunde outro aspecto da notícia.&#10;&#10;### Detalhe complementar&#10;&#10;Inclua informações adicionais relevantes."></textarea>
 
         <label for="newSourceName">Nome da fonte</label>
         <input id="newSourceName" type="text" maxlength="200" required>
