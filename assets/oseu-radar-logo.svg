@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+<title id="title">O Seu Radar</title><desc id="desc">Logotipo O Seu Radar em azul-marinho, azul-claro e verde-água.</desc>
+<defs><linearGradient id="sweep" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8bc9ff"/><stop offset="1" stop-color="#5eead4"/></linearGradient></defs>
+<g transform="translate(28 20)">
+<circle cx="130" cy="130" r="105" fill="none" stroke="#8bc9ff" stroke-width="13" stroke-dasharray="470 190" transform="rotate(-45 130 130)"/>
+<circle cx="130" cy="130" r="77" fill="none" stroke="#5eead4" stroke-width="11" stroke-dasharray="300 185" transform="rotate(-45 130 130)"/>
+<path d="M130 130 L218 42 A125 125 0 0 1 242 91 Z" fill="url(#sweep)" opacity=".95"/>
+<circle cx="130" cy="130" r="12" fill="#5eead4"/>
+<path d="M88 247 L108 115 Q112 91 141 91 H174 Q224 91 224 139 Q224 176 190 188 L245 247 H190 L145 195 H132 L124 247 Z M139 132 L132 164 H166 Q181 164 181 148 Q181 132 165 132 Z" fill="#0b1424"/>
+</g>
+<text x="310" y="190" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="800" letter-spacing="-5" fill="#0b1424">O Seu <tspan fill="#0b9383">Radar</tspan></text>
+</svg>
