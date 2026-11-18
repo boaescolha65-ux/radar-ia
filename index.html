@@ -1864,11 +1864,22 @@ function getCategory(article) {
       return text.slice(0, max).replace(/\\s+\\S*$/, "") + "…";
     }
 
-   function getArticleUrl(article) {
-  const url = new URL("/", "https://oseuradar.com.br/");
-  url.searchParams.set("noticia", String(getId(article)));
-  return url.href;
-}
+    function slugifyTitle(value) {
+      return String(value || "noticia")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 90)
+        .replace(/-+$/g, "") || "noticia";
+    }
+
+    function getArticleUrl(article) {
+      const id = String(getId(article) || "").trim();
+      const slug = slugifyTitle(getTitle(article));
+      return `https://oseuradar.com.br/noticia/${slug}-${encodeURIComponent(id)}`;
+    }
     function setMeta(name, content) {
       const element = document.getElementById(name);
       if (element) element.setAttribute("content", content);
@@ -2467,6 +2478,16 @@ async function showArticle(id) {
   // Não renderiza uma notícia se o usuário já navegou para outra URL.
   if (window.location.href !== currentUrl) return;
 
+  // Normaliza links antigos para o endereço amigável, sem recarregar a página.
+  const canonicalPath = new URL(getArticleUrl(article)).pathname;
+  if (
+    window.location.pathname !== canonicalPath ||
+    window.location.search ||
+    window.location.hash
+  ) {
+    window.history.replaceState({}, "", canonicalPath);
+  }
+
   elements.home.classList.add("hidden");
   elements.articlePage.classList.add("visible");
 
@@ -2484,14 +2505,21 @@ async function showArticle(id) {
     }
 
     function handleRoute() {
-      // Novo formato: /?noticia=ID
+      // Formato amigável: /noticia/slug-ID
       const params = new URLSearchParams(window.location.search);
       let id = params.get("noticia");
 
+      if (!id) {
+        const pathMatch = window.location.pathname.match(
+          /^\/noticia\/(?:.*-)?(\d+)\/?$/i
+        );
+        if (pathMatch) id = pathMatch[1];
+      }
+
       // Compatibilidade com links antigos: #noticia/ID
       if (!id) {
-        const match = window.location.hash.match(/^#noticia\/(.+)$/);
-        if (match) id = match[1];
+        const hashMatch = window.location.hash.match(/^#noticia\/(.+)$/);
+        if (hashMatch) id = hashMatch[1];
       }
 
       if (id) {
@@ -2543,8 +2571,11 @@ async function showArticle(id) {
 
         elements.ticker.textContent = "Notícias novas a cada 15 min.";
 
-        if (new URLSearchParams(window.location.search).has("noticia") ||
-            window.location.hash.startsWith("#noticia/")) {
+        if (
+          new URLSearchParams(window.location.search).has("noticia") ||
+          window.location.pathname.startsWith("/noticia/") ||
+          window.location.hash.startsWith("#noticia/")
+        ) {
           handleRoute();
         }
       } catch (error) {
@@ -2624,7 +2655,7 @@ async function showArticle(id) {
       if (!target) return;
 
       event.preventDefault();
-      window.history.pushState({}, "", window.location.pathname + hash);
+      window.history.pushState({}, "", "/" + hash);
       showHome();
 
       elements.nav.classList.remove("open");
@@ -2639,7 +2670,7 @@ async function showArticle(id) {
 
     document.getElementById("backToHome").addEventListener("click", event => {
       event.preventDefault();
-      window.history.pushState({}, "", window.location.pathname);
+      window.history.pushState({}, "", "/");
       showHome();
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
