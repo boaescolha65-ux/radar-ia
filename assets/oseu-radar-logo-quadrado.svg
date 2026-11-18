@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">O Seu Radar</title><desc id="desc">Símbolo de radar com a letra R em azul-marinho, azul-claro e verde-água.</desc>
+<defs><linearGradient id="sweep" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8bc9ff"/><stop offset="1" stop-color="#5eead4"/></linearGradient></defs>
+<circle cx="256" cy="235" r="190" fill="none" stroke="#8bc9ff" stroke-width="23" stroke-dasharray="850 340" transform="rotate(-45 256 235)"/>
+<circle cx="256" cy="235" r="139" fill="none" stroke="#5eead4" stroke-width="20" stroke-dasharray="540 330" transform="rotate(-45 256 235)"/>
+<path d="M256 235 L415 76 A225 225 0 0 1 458 164 Z" fill="url(#sweep)"/>
+<circle cx="256" cy="235" r="22" fill="#5eead4"/>
+<path d="M174 455 L208 205 Q215 164 270 164 H330 Q420 164 420 250 Q420 318 357 341 L455 455 H356 L276 356 H253 L238 455 Z M269 235 L256 294 H319 Q347 294 347 265 Q347 235 318 235 Z" fill="#0b1424"/>
+</svg>
