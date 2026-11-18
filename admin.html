@@ -455,6 +455,15 @@ function renderArticles(articles) {
       true
     );
 
+    const bodyHelp = document.createElement("p");
+    bodyHelp.className = "muted";
+    bodyHelp.style.margin = "-4px 0 14px";
+    bodyHelp.style.fontSize = "13px";
+    bodyHelp.style.lineHeight = "1.5";
+    bodyHelp.textContent =
+      "Formate os subtítulos em linhas separadas e deixe uma linha em branco antes e depois: # para H2, ## para H3 e ### para H4. O título principal já é gerado automaticamente como H1. Exemplo: # Contexto da notícia";
+    bodyField.parentElement.insertAdjacentElement("afterend", bodyHelp);
+
     const formActions = document.createElement("div");
     formActions.className = "actions";
 
