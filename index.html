@@ -910,6 +910,52 @@
   font-weight: 800;
 }
 
+/* Notícias relacionadas */
+.article-page .related-section {
+  max-width: 740px;
+  margin: 48px auto 0;
+  padding-top: 28px;
+  border-top: 1px solid #e9edf2;
+}
+
+.article-page .related-section h2 {
+  margin: 0 0 7px;
+  color: #202B3C;
+  font-family: Manrope, sans-serif;
+  font-size: 23px;
+  line-height: 1.25;
+}
+
+.article-page .related-section > p {
+  margin: 0 0 20px;
+  color: #788496;
+  font-size: 13px;
+}
+
+.article-page .related-articles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.article-page .related-articles .article-image {
+  height: 125px;
+}
+
+.article-page .related-articles .article-content {
+  padding: 14px;
+}
+
+.article-page .related-articles .article-content h3 {
+  min-height: 0;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.article-page .related-articles .article-excerpt {
+  font-size: 11px;
+}
+
 /* Aviso editorial */
 
 .article-page .detail-disclaimer {
@@ -1005,6 +1051,14 @@
   display: none !important;
 }
 
+
+  .article-page .related-articles {
+    grid-template-columns: 1fr;
+  }
+
+  .article-page .related-articles .article-image {
+    height: 180px;
+  }
 
   .article-page .article-detail-content {
     font-size: 16px;
@@ -2300,6 +2354,42 @@ function renderFeatured(article, compact = false) {
     }
 
 
+function getRelatedArticles(article) {
+  const currentId = String(getId(article));
+  const currentCategory = getCategory(article);
+
+  const candidates = state.articles.filter(item =>
+    item &&
+    String(getId(item)) !== currentId &&
+    String(getId(item)).trim() !== ""
+  );
+
+  const sameCategory = candidates.filter(
+    item => getCategory(item) === currentCategory
+  );
+
+  const otherCategories = candidates.filter(
+    item => getCategory(item) !== currentCategory
+  );
+
+  return [...sameCategory, ...otherCategories].slice(0, 3);
+}
+
+function renderRelatedArticles(article) {
+  const related = getRelatedArticles(article);
+  if (!related.length) return "";
+
+  return `
+    <section class="related-section" aria-labelledby="relatedArticlesTitle">
+      <h2 id="relatedArticlesTitle">Leia também</h2>
+      <p>Continue explorando notícias relacionadas a este assunto.</p>
+      <div class="related-articles">
+        ${related.map(renderCard).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderArticleDetail(article) {
   const title = escapeHTML(getTitle(article));
   const category = escapeHTML(getCategory(article));
@@ -2414,6 +2504,8 @@ function renderArticleDetail(article) {
       }
 
     </div>
+
+    ${renderRelatedArticles(article)}
   `;
 }   
     
