@@ -2651,7 +2651,10 @@ function setupArticleAudio(article) {
   };
 
   durationLabel.textContent = formatAudioTime(estimatedSeconds);
+  let restartChunkOnResume = false;
   speedButton?.addEventListener("click", () => {
+    const wasPlaying = window.speechSynthesis.speaking && !paused;
+    const wasPaused = paused;
     const nextIndex = (speeds.indexOf(speechRate) + 1) % speeds.length;
     speechRate = speeds[nextIndex];
     estimatedSeconds = Math.max(1, Math.round(baseEstimatedSeconds / speechRate));
@@ -2659,19 +2662,42 @@ function setupArticleAudio(article) {
     speedButton.setAttribute("aria-label", "Velocidade " + speechRate + " vezes. Clique para alterar.");
     durationLabel.textContent = formatAudioTime(estimatedSeconds);
     updateTime();
-    if (window.speechSynthesis.speaking && !paused) {
-      status.textContent = "Velocidade " + speechRate + "× · aplicada a partir do próximo trecho";
-    } else if (!window.speechSynthesis.speaking && !paused) {
+
+    // A Web Speech API não altera a velocidade de um utterance já iniciado.
+    // Reinicia o trecho atual na nova taxa, ou deixa preparado para retomar.
+    if (wasPlaying || wasPaused) {
+      runId++;
+      const token = runId;
+      clearTimer();
+      window.speechSynthesis.cancel();
+      if (wasPaused) {
+        paused = true;
+        restartChunkOnResume = true;
+        status.textContent = "Áudio pausado · velocidade " + speechRate + "×";
+      } else {
+        paused = false;
+        restartChunkOnResume = false;
+        status.textContent = "Reiniciando trecho em " + speechRate + "×";
+        speakChunk(token);
+      }
+    } else {
       status.textContent = "Narração em português · " + speechRate + "× · duração aproximada " + formatAudioTime(estimatedSeconds);
     }
   });
   button.addEventListener("click", () => {
     if (paused) {
       paused = false;
-      window.speechSynthesis.resume();
-      setButton(true);
-      status.textContent = "Retomando leitura…";
-      startTimer();
+      if (restartChunkOnResume) {
+        restartChunkOnResume = false;
+        status.textContent = "Retomando em " + speechRate + "×";
+        setButton(true);
+        speakChunk(runId);
+      } else {
+        window.speechSynthesis.resume();
+        setButton(true);
+        status.textContent = "Retomando leitura…";
+        startTimer();
+      }
       return;
     }
     if (window.speechSynthesis.speaking) {
