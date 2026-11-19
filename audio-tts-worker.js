@@ -63,11 +63,9 @@ export default {
     if (!text) return json({ error: "Texto vazio" }, 400, headers);
     if (text.length > MAX_TEXT) return json({ error: "Trecho muito longo; limite de 1.400 caracteres" }, 413, headers);
 
-    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    const limit = await checkRateLimit(env, ip);
-    if (limit.setupError) return json({ error: "Serviço ainda não configurado: binding TTS_KV ausente." }, 503, headers);
-    if (!limit.allowed) return json({ error: "Limite diário de narração atingido. Tente novamente amanhã." }, 429, headers);
-
+    if (!env.AI || !env.TTS_KV) {
+      return json({ error: "Serviço ainda não configurado: bindings AI e TTS_KV necessários." }, 503, headers);
+    }
     const cacheKey = "audio:" + await sha256("pt-BR|ara|" + text);
     const cached = await env.TTS_KV.get(cacheKey, "arrayBuffer");
     if (cached) {
@@ -76,6 +74,15 @@ export default {
         "X-TTS-Cache": "HIT"
       }});
     }
+
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    let limit;
+    try { limit = await checkRateLimit(env, ip); }
+    catch (limitError) {
+      console.error("Erro de rate limit/cache KV:", limitError);
+      return json({ error: "Serviço temporariamente indisponível." }, 503, headers);
+    }
+    if (!limit.allowed) return json({ error: "Limite diário de narração atingido. Tente novamente amanhã." }, 429, headers);
 
     try {
       const result = await env.AI.run(MODEL, {
@@ -94,8 +101,12 @@ export default {
       if (!audio.byteLength || audio.byteLength > 4 * 1024 * 1024) {
         return json({ error: "Arquivo de áudio vazio ou excede o limite." }, 502, headers);
       }
-      // Guarda o MP3 para reutilização, evitando cobrar nova geração para o mesmo trecho.
-      await env.TTS_KV.put(cacheKey, audio, { expirationTtl: CACHE_TTL });
+      // Falha de cache não deve impedir o visitante de receber o áudio gerado.
+      try {
+        await env.TTS_KV.put(cacheKey, audio, { expirationTtl: CACHE_TTL });
+      } catch (cacheError) {
+        console.warn("Não foi possível salvar o cache TTS:", cacheError);
+      }
       return new Response(audio, { status: 200, headers: {
         ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400",
         "X-TTS-Cache": "MISS"
