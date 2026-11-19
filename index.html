@@ -1510,8 +1510,14 @@ body.about-view #contato {
   color:#758195;
   font-size:11px;
 }
-.audio-news-player .audio-progress { flex:1; height:5px; overflow:hidden; border-radius:99px; background:#dfe6ed; }
-.audio-news-player .audio-progress-fill { width:0; height:100%; border-radius:inherit; background:#087f72; transition:width .2s linear; }
+.audio-news-player .audio-seek { flex:1; min-width:60px; width:100%; height:6px; margin:0; border-radius:99px; appearance:none; background:linear-gradient(to right,#087f72 var(--seek-progress,0%),#dfe6ed var(--seek-progress,0%)); cursor:pointer; }
+.audio-news-player .audio-seek::-webkit-slider-thumb { appearance:none; width:14px; height:14px; border:2px solid #fff; border-radius:50%; background:#087f72; box-shadow:0 0 0 1px #087f72; }
+.audio-news-player .audio-seek::-moz-range-thumb { width:12px; height:12px; border:2px solid #fff; border-radius:50%; background:#087f72; box-shadow:0 0 0 1px #087f72; }
+.audio-news-player .audio-seek:disabled { cursor:default; opacity:.55; }
+.audio-news-player .audio-actions { grid-column:1 / -1; display:flex; justify-content:center; gap:10px; }
+.audio-news-player .audio-actions button { padding:5px 12px; border:1px solid #d8e1e9; border-radius:999px; background:#fff; color:#243348; font-size:11px; font-weight:700; cursor:pointer; }
+.audio-news-player .audio-actions button:disabled { opacity:.5; cursor:not-allowed; }
+.audio-news-player .audio-actions button:hover:not(:disabled) { border-color:#087f72; color:#087f72; }
 .article-content h3 a { color:inherit; text-decoration:none; }
 .article-content h3 a:hover { color:#087f72; text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:3px; }
 @media (max-width:480px) { .audio-news-player { gap:10px; padding:13px; } .audio-news-player .audio-toggle { width:44px; height:44px; } }
@@ -2477,34 +2483,29 @@ function createArticleAudioPlayer(article) {
   const cleanText = (value) => {
     const holder = document.createElement("div");
     holder.innerHTML = String(value || "");
-    return (holder.textContent || holder.innerText || "")
-      .replace(/\\s+/g, " ")
-      .trim();
+    return (holder.textContent || holder.innerText || "").replace(/\\s+/g, " ").trim();
   };
-  const audioText = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
-    .map(cleanText)
-    .filter(Boolean)
-    .join(". ");
-  const wordCount = audioText.split(/\\s+/).filter(Boolean).length;
-  const estimatedSeconds = Math.max(1, Math.round(wordCount / 150 * 60));
-
+  const text = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
+    .map(cleanText).filter(Boolean).join(". ");
+  const estimatedSeconds = Math.max(1, Math.round(text.split(/\\s+/).filter(Boolean).length / 150 * 60));
   return `
     <section class="audio-news-player" id="articleAudioPlayer" aria-label="Ouvir notícia">
-      <button type="button" class="audio-toggle" id="audioToggleButton"
-        aria-label="Reproduzir notícia" title="Reproduzir notícia">▶</button>
+      <button type="button" class="audio-toggle" id="audioToggleButton" aria-label="Reproduzir notícia" title="Reproduzir notícia">▶</button>
       <div class="audio-info">
         <div class="audio-info-row">
           <span class="audio-label">Ouça esta notícia</span>
-          <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade da narração" title="Alterar velocidade">1×</button>
+          <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade" title="Alterar velocidade">1×</button>
         </div>
-        <span class="audio-status" id="audioStatus" role="status">Narração em português · duração aproximada ${formatAudioTime(estimatedSeconds)}</span>
+        <span class="audio-status" id="audioStatus" role="status">Narração IA em português · duração estimada ${formatAudioTime(estimatedSeconds)}</span>
       </div>
       <div class="audio-progress-wrap" aria-label="Progresso da narração">
         <span id="audioElapsed">0:00</span>
-        <div class="audio-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="audioProgress">
-          <div class="audio-progress-fill" id="audioProgressFill"></div>
-        </div>
+        <input id="audioSeek" class="audio-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Posição da narração" disabled>
         <span id="audioDuration">${formatAudioTime(estimatedSeconds)}</span>
+      </div>
+      <div class="audio-actions">
+        <button type="button" id="audioBackButton" aria-label="Voltar 10 segundos" disabled>↶ 10s</button>
+        <button type="button" id="audioForwardButton" aria-label="Avançar 10 segundos" disabled>10s ↷</button>
       </div>
     </section>
   `;
@@ -2516,194 +2517,242 @@ function setupArticleAudio(article) {
   const status = document.getElementById("audioStatus");
   const elapsedLabel = document.getElementById("audioElapsed");
   const durationLabel = document.getElementById("audioDuration");
-  const progress = document.getElementById("audioProgress");
-  const fill = document.getElementById("audioProgressFill");
-  if (!button || !status || !elapsedLabel || !durationLabel || !progress || !fill) return;
+  const seek = document.getElementById("audioSeek");
+  const backButton = document.getElementById("audioBackButton");
+  const forwardButton = document.getElementById("audioForwardButton");
+  if (!button || !status || !elapsedLabel || !durationLabel || !seek) return;
 
-  if (!(window.speechSynthesis && window.SpeechSynthesisUtterance)) {
-    status.textContent = "Seu navegador não oferece leitura de áudio.";
-    button.disabled = true;
-    return;
-  }
-
-  // Limpa a leitura anterior mesmo quando a navegação ocorre sem recarregar a página.
-  window.speechSynthesis.cancel();
-
-  const stripHtml = (value) => {
+  window.articleTtsCleanup?.();
+  const cleanText = (value) => {
     const holder = document.createElement("div");
     holder.innerHTML = String(value || "");
-    return (holder.textContent || holder.innerText || "")
-      .replace(/\\s+/g, " ")
-      .trim();
+    return (holder.textContent || holder.innerText || "").replace(/\\s+/g, " ").trim();
   };
-  const text = [getTitle(article), getExcerpt(article), stripHtml(getBody(article))]
-    .map(stripHtml)
-    .filter(Boolean)
-    .join(". ")
-    .replace(/\\s+/g, " ")
-    .trim();
-
-  const words = text.split(/\\s+/).filter(Boolean);
-  const baseEstimatedSeconds = Math.max(1, Math.round(words.length / 150 * 60));
-  let speechRate = 1;
-  let estimatedSeconds = baseEstimatedSeconds;
-  const speeds = [1, 1.25, 1.5, 1.75, 2];
-  // Blocos menores permitem que a velocidade escolhida entre em vigor rapidamente,
-  // sem cancelar nem reiniciar a fala que já está em andamento.
+  const text = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
+    .map(cleanText).filter(Boolean).join(". ").replace(/\\s+/g, " ").trim();
   const chunks = [];
   let remaining = text;
-  while (remaining.length) {
-    if (remaining.length <= 110) {
-      chunks.push(remaining);
-      break;
-    }
-    let cut = remaining.lastIndexOf(". ", 110);
-    if (cut < 55) cut = remaining.lastIndexOf(" ", 110);
-    if (cut < 1) cut = 110;
+  while (remaining.length > 1400) {
+    let cut = remaining.lastIndexOf(". ", 1300);
+    if (cut < 650) cut = remaining.lastIndexOf(" ", 1300);
+    if (cut < 1) cut = 1300;
     chunks.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trim();
   }
+  if (remaining) chunks.push(remaining);
 
-  let elapsed = 0;
-  let timer = null;
+  const rates = [1, 1.25, 1.5, 1.75, 2];
+  let rateIndex = 0;
+  let rate = rates[rateIndex];
+  let audio = null;
+  let parts = [];
+  let cumulative = [];
+  let totalDuration = 0;
+  let currentPart = 0;
+  let generating = false;
+  let playing = false;
   let paused = false;
-  let finished = false;
-  let runId = 0;
-  let currentChunk = 0;
+  let done = false;
+  let generationController = null;
+  let disposed = false;
 
-  const updateProgress = (value) => {
-    const pct = Math.max(0, Math.min(100, Math.round(value)));
-    fill.style.width = pct + "%";
-    progress.setAttribute("aria-valuenow", String(pct));
+  const timeLabel = (seconds) => formatAudioTime(seconds);
+  const getPosition = () => {
+    if (!audio || !parts.length) return 0;
+    return (cumulative[currentPart] || 0) + (audio.currentTime || 0);
   };
-  const updateTime = () => {
-    elapsedLabel.textContent = formatAudioTime(elapsed);
-    updateProgress(estimatedSeconds ? elapsed / estimatedSeconds * 100 : 0);
-  };
-  const clearTimer = () => {
-    if (timer) window.clearInterval(timer);
-    timer = null;
-  };
-  const setButton = (isPlaying) => {
+  const setPlayButton = (isPlaying) => {
     button.textContent = isPlaying ? "Ⅱ" : "▶";
     button.setAttribute("aria-label", isPlaying ? "Pausar notícia" : "Reproduzir notícia");
-    button.setAttribute("title", isPlaying ? "Pausar notícia" : "Reproduzir notícia");
+    button.title = isPlaying ? "Pausar notícia" : "Reproduzir notícia";
   };
-  const resetPlayer = (message) => {
-    clearTimer();
-    window.speechSynthesis.cancel();
-    runId++;
-    paused = false;
-    finished = false;
-    currentChunk = 0;
-    elapsed = 0;
-    setButton(false);
-    updateTime();
-    if (message) status.textContent = message;
+  const updateProgress = () => {
+    const position = Math.min(totalDuration, getPosition());
+    elapsedLabel.textContent = timeLabel(position);
+    seek.value = totalDuration ? String(Math.round(position / totalDuration * 1000)) : "0";
+    seek.style.setProperty("--seek-progress", (totalDuration ? position / totalDuration * 100 : 0) + "%");
   };
-  const startTimer = () => {
-    clearTimer();
-    timer = window.setInterval(() => {
-      if (!paused && !finished && elapsed < estimatedSeconds) {
-        elapsed += 1;
-        updateTime();
+  const cleanupUrls = () => {
+    parts.forEach(part => { if (part.url) URL.revokeObjectURL(part.url); });
+    parts = [];
+  };
+  const stopAudio = () => {
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      audio = null;
+    }
+  };
+  const cleanup = () => {
+    disposed = true;
+    generationController?.abort();
+    stopAudio();
+    cleanupUrls();
+  };
+  window.articleTtsCleanup = cleanup;
+  const setStatus = (message) => { if (!disposed) status.textContent = message; };
+  const loadPartAudio = (index, offset = 0) => {
+    stopAudio();
+    currentPart = Math.max(0, Math.min(parts.length - 1, index));
+    audio = new Audio(parts[currentPart].url);
+    audio.preload = "auto";
+    audio.playbackRate = rate;
+    audio.currentTime = offset;
+    audio.addEventListener("timeupdate", updateProgress);
+    audio.addEventListener("ended", () => {
+      if (!playing || disposed) return;
+      if (currentPart < parts.length - 1) {
+        loadPartAudio(currentPart + 1);
+        audio.play().catch(handlePlaybackError);
+      } else {
+        playing = false; paused = false; done = true;
+        setPlayButton(false);
+        setStatus("Narração concluída");
+        updateProgress();
       }
-    }, 1000);
+    });
+    audio.addEventListener("error", () => {
+      playing = false;
+      setPlayButton(false);
+      setStatus("Falha ao carregar um trecho de áudio. Tente novamente.");
+    });
+    updateProgress();
   };
-  const chooseVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    return voices.find(v => /^pt-BR$/i.test(v.lang))
-      || voices.find(v => /^pt[-_]/i.test(v.lang))
-      || null;
+  const handlePlaybackError = () => {
+    playing = false;
+    setPlayButton(false);
+    setStatus("O navegador bloqueou a reprodução. Clique em reproduzir novamente.");
   };
-  const speakChunk = (token) => {
-    if (token !== runId || paused) return;
-    if (currentChunk >= chunks.length) {
-      clearTimer();
-      finished = true;
-      elapsed = estimatedSeconds;
-      updateTime();
-      status.textContent = "Leitura concluída";
-      setButton(false);
+  const playFrom = async (index, offset = 0) => {
+    if (!parts.length || disposed) return;
+    loadPartAudio(index, offset);
+    playing = true; paused = false; done = false;
+    setPlayButton(true);
+    setStatus("Reproduzindo narração IA · " + rate.toString().replace(".", ",") + "×");
+    try { await audio.play(); } catch (error) { handlePlaybackError(); }
+  };
+  const generateAudio = async () => {
+    if (generating || disposed) return;
+    generating = true;
+    button.disabled = true;
+    generationController = new AbortController();
+    setStatus("Gerando narração · 0/" + chunks.length + " trechos…");
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        const response = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: chunks[i] }),
+          signal: generationController.signal
+        });
+        if (!response.ok) {
+          let errorMessage = "Falha na geração de áudio (HTTP " + response.status + ").";
+          try { const data = await response.json(); if (data?.error) errorMessage = data.error; } catch (_) {}
+          throw new Error(errorMessage);
+        }
+        const blob = await response.blob();
+        if (!blob.size) throw new Error("O serviço retornou um trecho vazio.");
+        const url = URL.createObjectURL(blob);
+        const metadataAudio = new Audio(url);
+        await new Promise((resolve, reject) => {
+          const timer = window.setTimeout(() => reject(new Error("Tempo excedido ao carregar áudio.")), 15000);
+          metadataAudio.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
+          metadataAudio.addEventListener("error", () => { clearTimeout(timer); reject(new Error("Áudio MP3 inválido.")); }, { once: true });
+          metadataAudio.load();
+        });
+        const duration = metadataAudio.duration;
+        if (!Number.isFinite(duration) || duration <= 0) throw new Error("Duração do áudio inválida.");
+        parts.push({ url, duration });
+        totalDuration += duration;
+        cumulative.push(totalDuration - duration);
+        metadataAudio.src = "";
+        setStatus("Gerando narração · " + (i + 1) + "/" + chunks.length + " trechos…");
+      }
+      seek.disabled = false;
+      if (backButton) backButton.disabled = false;
+      if (forwardButton) forwardButton.disabled = false;
+      durationLabel.textContent = timeLabel(totalDuration);
+      generating = false;
+      button.disabled = false;
+      await playFrom(0);
+    } catch (error) {
+      generating = false;
+      button.disabled = false;
+      if (error.name === "AbortError") setStatus("Geração de áudio cancelada.");
+      else setStatus(error.message || "Não foi possível gerar a narração.");
+      cleanupUrls();
+      totalDuration = 0;
+      cumulative = [];
+      seek.disabled = true;
+    }
+  };
+  button.addEventListener("click", async () => {
+    if (generating) {
+      generationController?.abort();
+      button.disabled = true;
+      setStatus("Cancelando geração…");
       return;
     }
-    const part = new SpeechSynthesisUtterance(chunks[currentChunk]);
-    part.lang = "pt-BR";
-    part.rate = speechRate;
-    const voice = chooseVoice();
-    if (voice) part.voice = voice;
-    part.onstart = () => {
-      if (token !== runId) return;
-      status.textContent = "Lendo notícia em voz alta…";
-      startTimer();
-    };
-    part.onend = () => {
-      if (token !== runId || paused) return;
-      currentChunk++;
-      speakChunk(token);
-    };
-    part.onerror = (event) => {
-      if (token !== runId || event.error === "canceled" || event.error === "interrupted") return;
-      clearTimer();
-      status.textContent = "Não foi possível reproduzir. Tente novamente.";
-      setButton(false);
-    };
-    window.speechSynthesis.speak(part);
-  };
-
-  durationLabel.textContent = formatAudioTime(estimatedSeconds);
+    if (playing && audio) {
+      audio.pause(); playing = false; paused = true;
+      setPlayButton(false); setStatus("Áudio pausado"); return;
+    }
+    if (paused && audio) {
+      playing = true; paused = false; setPlayButton(true);
+      setStatus("Retomando áudio · " + rate.toString().replace(".", ",") + "×");
+      try { await audio.play(); } catch (_) { handlePlaybackError(); }
+      return;
+    }
+    if (done && parts.length) {
+      await playFrom(0);
+      return;
+    }
+    if (parts.length) {
+      const position = getPosition();
+      let index = currentPart, offset = audio?.currentTime || 0;
+      await playFrom(index, offset);
+      return;
+    }
+    await generateAudio();
+  });
   speedButton?.addEventListener("click", () => {
-    const wasPlaying = window.speechSynthesis.speaking && !paused;
-    const nextIndex = (speeds.indexOf(speechRate) + 1) % speeds.length;
-    speechRate = speeds[nextIndex];
-    estimatedSeconds = Math.max(1, Math.round(baseEstimatedSeconds / speechRate));
-    speedButton.textContent = String(speechRate).replace(".", ",") + "×";
-    speedButton.setAttribute("aria-label", "Velocidade " + speechRate + " vezes. Clique para alterar.");
-    durationLabel.textContent = formatAudioTime(estimatedSeconds);
-    updateTime();
-
-    // O SpeechSynthesis não muda a taxa de um trecho já iniciado.
-    // A escolha é aplicada ao próximo bloco curto, sem cancelar/reiniciar o áudio.
-    if (paused) {
-      status.textContent = "Áudio pausado · próxima fala em " + speechRate + "×";
-    } else if (wasPlaying) {
-      status.textContent = "Velocidade " + speechRate + "× · aplicada no próximo trecho";
-    } else {
-      status.textContent = "Narração em português · " + speechRate + "× · duração aproximada " + formatAudioTime(estimatedSeconds);
-    }
+    rateIndex = (rateIndex + 1) % rates.length;
+    rate = rates[rateIndex];
+    speedButton.textContent = rate.toString().replace(".", ",") + "×";
+    speedButton.setAttribute("aria-label", "Velocidade " + rate.toString().replace(".", ",") + " vezes");
+    if (audio) audio.playbackRate = rate;
+    setStatus((playing ? "Reproduzindo" : paused ? "Pausado" : "Pronto") + " · velocidade " + rate.toString().replace(".", ",") + "×");
   });
-  button.addEventListener("click", () => {
-    if (paused) {
-      paused = false;
-      window.speechSynthesis.resume();
-      setButton(true);
-      status.textContent = "Retomando leitura…";
-      startTimer();
-      return;
+  seek.addEventListener("input", () => {
+    if (!parts.length || !totalDuration) return;
+    const target = totalDuration * (Number(seek.value) / 1000);
+    let index = parts.length - 1;
+    for (let i = 0; i < parts.length; i++) {
+      if (target < cumulative[i] + parts[i].duration || i === parts.length - 1) { index = i; break; }
     }
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.pause();
-      paused = true;
-      clearTimer();
-      setButton(false);
-      status.textContent = "Áudio pausado";
-      return;
-    }
-    if (finished) resetPlayer("Narração em português · duração aproximada " + formatAudioTime(estimatedSeconds));
-    if (elapsed === 0 || finished || currentChunk === 0) {
-      runId++;
-      currentChunk = 0;
-      paused = false;
-      finished = false;
-      elapsed = 0;
-      updateTime();
-      setButton(true);
-      status.textContent = "Preparando áudio…";
-      speakChunk(runId);
-    }
+    const offset = Math.max(0, target - cumulative[index]);
+    const wasPlaying = playing;
+    const wasPaused = paused;
+    if (audio) audio.pause();
+    if (wasPlaying || wasPaused) playFrom(index, offset);
+    else { loadPartAudio(index, offset); updateProgress(); }
   });
-
-  window.addEventListener("pagehide", () => resetPlayer(""), { once: true });
+  backButton?.addEventListener("click", () => {
+    const target = Math.max(0, getPosition() - 10);
+    seek.value = totalDuration ? String(Math.round(target / totalDuration * 1000)) : "0";
+    seek.dispatchEvent(new Event("input"));
+  });
+  forwardButton?.addEventListener("click", () => {
+    const target = Math.min(totalDuration, getPosition() + 10);
+    seek.value = totalDuration ? String(Math.round(target / totalDuration * 1000)) : "0";
+    seek.dispatchEvent(new Event("input"));
+  });
+  setPlayButton(false);
+  seek.disabled = true;
+  if (backButton) backButton.disabled = true;
+  if (forwardButton) forwardButton.disabled = true;
+  window.addEventListener("pagehide", cleanup, { once: true });
 }
 
 function renderArticleDetail(article) {
