@@ -1465,30 +1465,52 @@ body.about-view #contato {
 }
 
   
-/* Player de leitura em áudio */
+/* Player de áudio — leitura acessível */
 .audio-news-player {
-  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  margin:0 0 28px; padding:16px 18px;
-  border:1px solid #e4eaf0; border-radius:12px; background:#f8fafc;
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr);
+  align-items:center;
+  gap:12px 15px;
+  margin:0 0 28px;
+  padding:16px;
+  border:1px solid #e4eaf0;
+  border-radius:16px;
+  background:linear-gradient(135deg,#f8fafc,#f1f6f9);
+  box-shadow:0 4px 14px rgba(17,31,52,.035);
 }
-.audio-news-player button {
-  display:inline-flex; align-items:center; justify-content:center;
-  min-width:42px; min-height:42px; border:0; border-radius:50%;
-  background:#0b1424; color:#fff; cursor:pointer; font-size:16px; font-weight:700;
+.audio-news-player .audio-toggle {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:48px;
+  height:48px;
+  border:0;
+  border-radius:50%;
+  background:#0b1424;
+  color:#fff;
+  cursor:pointer;
+  font-size:18px;
+  transition:background .2s, transform .2s;
 }
-.audio-news-player button:hover { background:#087f72; }
-.audio-news-player button:focus-visible { outline:3px solid #5eead4; outline-offset:3px; }
-.audio-news-player .audio-stop { min-width:36px; min-height:36px; font-size:13px; background:#e7edf3; color:#344154; }
-.audio-news-player .audio-info { flex:1 1 180px; min-width:0; }
-.audio-news-player .audio-label { display:block; color:#202b3c; font-size:13px; font-weight:800; }
-.audio-news-player .audio-status { display:block; margin-top:2px; color:#748094; font-size:11px; }
-.audio-news-player .audio-progress-wrap { flex:1 1 100%; display:flex; align-items:center; gap:10px; color:#758195; font-size:11px; }
+.audio-news-player .audio-toggle:hover { background:#087f72; transform:scale(1.04); }
+.audio-news-player .audio-toggle:focus-visible { outline:3px solid #5eead4; outline-offset:3px; }
+.audio-news-player .audio-toggle:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+.audio-news-player .audio-info { min-width:0; }
+.audio-news-player .audio-label { display:block; color:#202b3c; font-size:14px; font-weight:800; }
+.audio-news-player .audio-status { display:block; margin-top:2px; color:#748094; font-size:12px; }
+.audio-news-player .audio-progress-wrap {
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:#758195;
+  font-size:11px;
+}
 .audio-news-player .audio-progress { flex:1; height:5px; overflow:hidden; border-radius:99px; background:#dfe6ed; }
 .audio-news-player .audio-progress-fill { width:0; height:100%; border-radius:inherit; background:#087f72; transition:width .2s linear; }
 .article-content h3 a { color:inherit; text-decoration:none; }
 .article-content h3 a:hover { color:#087f72; text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:3px; }
-@media (max-width:480px) { .audio-news-player { gap:10px; padding:14px; } .audio-news-player .audio-info { flex-basis:140px; } }
-
+@media (max-width:480px) { .audio-news-player { gap:10px; padding:13px; } .audio-news-player .audio-toggle { width:44px; height:44px; } }
 </style>
 
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1493087992822593" crossorigin="anonymous"></script>
@@ -2448,24 +2470,24 @@ function formatAudioTime(seconds) {
 }
 
 function createArticleAudioPlayer(article) {
-  const plainBody = String(getBody(article) || "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-  const audioText = [getTitle(article), getExcerpt(article), plainBody]
-    .filter(Boolean).join(". ");
-  const wordCount = audioText.split(/\s+/).filter(Boolean).length;
-  const estimatedSeconds = Math.max(1, Math.round(wordCount / 165 * 60));
+  const cleanText = (value) => {
+    const holder = document.createElement("div");
+    holder.innerHTML = String(value || "");
+    return (holder.textContent || holder.innerText || "")
+      .replace(/\\s+/g, " ")
+      .trim();
+  };
+  const audioText = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
+    .map(cleanText)
+    .filter(Boolean)
+    .join(". ");
+  const wordCount = audioText.split(/\\s+/).filter(Boolean).length;
+  const estimatedSeconds = Math.max(1, Math.round(wordCount / 150 * 60));
 
   return `
     <section class="audio-news-player" id="articleAudioPlayer" aria-label="Ouvir notícia">
-      <button type="button" id="audioPlayButton" aria-label="Reproduzir notícia" title="Reproduzir notícia">▶</button>
-      <button type="button" id="audioPauseButton" aria-label="Pausar ou continuar" title="Pausar ou continuar" hidden>Ⅱ</button>
-      <button type="button" id="audioStopButton" class="audio-stop" aria-label="Parar áudio" title="Parar áudio">■</button>
+      <button type="button" class="audio-toggle" id="audioToggleButton"
+        aria-label="Reproduzir notícia" title="Reproduzir notícia">▶</button>
       <div class="audio-info">
         <span class="audio-label">Ouça esta notícia</span>
         <span class="audio-status" id="audioStatus" role="status">Narração em português · duração aproximada ${formatAudioTime(estimatedSeconds)}</span>
@@ -2482,62 +2504,90 @@ function createArticleAudioPlayer(article) {
 }
 
 function setupArticleAudio(article) {
-  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-    const status = document.getElementById("audioStatus");
-    if (status) status.textContent = "Narração por áudio não suportada neste navegador.";
-    const play = document.getElementById("audioPlayButton");
-    if (play) play.disabled = true;
-    return;
-  }
-
-  const text = [getTitle(article), getExcerpt(article), getBody(article)]
-    .filter(Boolean).join(". ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const words = text.split(/\s+/).filter(Boolean);
-  const estimatedSeconds = Math.max(1, Math.round(words.length / 165 * 60));
-  let elapsed = 0;
-  let timer = null;
-  let utterance = null;
-  let paused = false;
-  let finished = false;
-
-  const playButton = document.getElementById("audioPlayButton");
-  const pauseButton = document.getElementById("audioPauseButton");
-  const stopButton = document.getElementById("audioStopButton");
+  const button = document.getElementById("audioToggleButton");
   const status = document.getElementById("audioStatus");
   const elapsedLabel = document.getElementById("audioElapsed");
   const durationLabel = document.getElementById("audioDuration");
   const progress = document.getElementById("audioProgress");
   const fill = document.getElementById("audioProgressFill");
+  if (!button || !status || !elapsedLabel || !durationLabel || !progress || !fill) return;
 
-  const updateProgress = (percent) => {
-    const value = Math.max(0, Math.min(100, Math.round(percent)));
-    fill.style.width = value + "%";
-    progress.setAttribute("aria-valuenow", String(value));
+  if (!(window.speechSynthesis && window.SpeechSynthesisUtterance)) {
+    status.textContent = "Seu navegador não oferece leitura de áudio.";
+    button.disabled = true;
+    return;
+  }
+
+  // Limpa a leitura anterior mesmo quando a navegação ocorre sem recarregar a página.
+  window.speechSynthesis.cancel();
+
+  const stripHtml = (value) => {
+    const holder = document.createElement("div");
+    holder.innerHTML = String(value || "");
+    return (holder.textContent || holder.innerText || "")
+      .replace(/\\s+/g, " ")
+      .trim();
+  };
+  const text = [getTitle(article), getExcerpt(article), stripHtml(getBody(article))]
+    .map(stripHtml)
+    .filter(Boolean)
+    .join(". ")
+    .replace(/\\s+/g, " ")
+    .trim();
+
+  const words = text.split(/\\s+/).filter(Boolean);
+  const estimatedSeconds = Math.max(1, Math.round(words.length / 150 * 60));
+  // Divide textos longos em blocos para evitar interrupções comuns da Speech API.
+  const chunks = [];
+  let remaining = text;
+  while (remaining.length) {
+    if (remaining.length <= 220) {
+      chunks.push(remaining);
+      break;
+    }
+    let cut = remaining.lastIndexOf(". ", 220);
+    if (cut < 100) cut = remaining.lastIndexOf(" ", 220);
+    if (cut < 1) cut = 220;
+    chunks.push(remaining.slice(0, cut).trim());
+    remaining = remaining.slice(cut).trim();
+  }
+
+  let elapsed = 0;
+  let timer = null;
+  let paused = false;
+  let finished = false;
+  let runId = 0;
+  let currentChunk = 0;
+
+  const updateProgress = (value) => {
+    const pct = Math.max(0, Math.min(100, Math.round(value)));
+    fill.style.width = pct + "%";
+    progress.setAttribute("aria-valuenow", String(pct));
   };
   const updateTime = () => {
     elapsedLabel.textContent = formatAudioTime(elapsed);
-    updateProgress(elapsed / estimatedSeconds * 100);
+    updateProgress(estimatedSeconds ? elapsed / estimatedSeconds * 100 : 0);
   };
   const clearTimer = () => {
     if (timer) window.clearInterval(timer);
     timer = null;
   };
-  const stopAudio = (reset = true) => {
+  const setButton = (isPlaying) => {
+    button.textContent = isPlaying ? "Ⅱ" : "▶";
+    button.setAttribute("aria-label", isPlaying ? "Pausar notícia" : "Reproduzir notícia");
+    button.setAttribute("title", isPlaying ? "Pausar notícia" : "Reproduzir notícia");
+  };
+  const resetPlayer = (message) => {
     clearTimer();
     window.speechSynthesis.cancel();
+    runId++;
     paused = false;
     finished = false;
-    utterance = null;
-    playButton.hidden = false;
-    pauseButton.hidden = true;
-    pauseButton.textContent = "Ⅱ";
-    if (reset) {
-      elapsed = 0;
-      updateTime();
-      status.textContent = "Narração em português · duração aproximada " + formatAudioTime(estimatedSeconds);
-    }
+    currentChunk = 0;
+    elapsed = 0;
+    setButton(false);
+    updateTime();
+    if (message) status.textContent = message;
   };
   const startTimer = () => {
     clearTimer();
@@ -2548,76 +2598,81 @@ function setupArticleAudio(article) {
       }
     }, 1000);
   };
+  const chooseVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    return voices.find(v => /^pt-BR$/i.test(v.lang))
+      || voices.find(v => /^pt[-_]/i.test(v.lang))
+      || null;
+  };
+  const speakChunk = (token) => {
+    if (token !== runId || paused) return;
+    if (currentChunk >= chunks.length) {
+      clearTimer();
+      finished = true;
+      elapsed = estimatedSeconds;
+      updateTime();
+      status.textContent = "Leitura concluída";
+      setButton(false);
+      return;
+    }
+    const part = new SpeechSynthesisUtterance(chunks[currentChunk]);
+    part.lang = "pt-BR";
+    part.rate = 1;
+    const voice = chooseVoice();
+    if (voice) part.voice = voice;
+    part.onstart = () => {
+      if (token !== runId) return;
+      status.textContent = "Lendo notícia em voz alta…";
+      startTimer();
+    };
+    part.onend = () => {
+      if (token !== runId || paused) return;
+      currentChunk++;
+      speakChunk(token);
+    };
+    part.onerror = (event) => {
+      if (token !== runId || event.error === "canceled" || event.error === "interrupted") return;
+      clearTimer();
+      status.textContent = "Não foi possível reproduzir. Tente novamente.";
+      setButton(false);
+    };
+    window.speechSynthesis.speak(part);
+  };
 
   durationLabel.textContent = formatAudioTime(estimatedSeconds);
-
-  playButton.addEventListener("click", () => {
+  button.addEventListener("click", () => {
     if (paused) {
-      window.speechSynthesis.resume();
       paused = false;
-      playButton.hidden = true;
-      pauseButton.hidden = false;
-      status.textContent = "Reproduzindo notícia…";
+      window.speechSynthesis.resume();
+      setButton(true);
+      status.textContent = "Retomando leitura…";
       startTimer();
       return;
     }
-    if (finished || elapsed === 0 || !utterance) {
-      stopAudio(true);
-      utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "pt-BR";
-      utter.rate = 1;
-      utter.onstart = () => {
-        playButton.hidden = true;
-        pauseButton.hidden = false;
-        status.textContent = "Reproduzindo notícia…";
-        startTimer();
-      };
-      utterance.onboundary = (event) => {
-        if (event.charIndex > 0 && text.length) {
-          const ratio = Math.min(1, event.charIndex / text.length);
-          elapsed = Math.min(estimatedSeconds, Math.round(estimatedSeconds * ratio));
-          updateTime();
-        }
-      };
-      utterance.onend = () => {
-        clearTimer();
-        finished = true;
-        elapsed = estimatedSeconds;
-        updateTime();
-        status.textContent = "Narração concluída";
-        playButton.hidden = false;
-        pauseButton.hidden = true;
-      };
-      utterance.onerror = (event) => {
-        clearTimer();
-        status.textContent = event.error === "canceled" ? "Narração interrompida" : "Não foi possível iniciar a narração.";
-        playButton.hidden = false;
-        pauseButton.hidden = true;
-      };
-      window.speechSynthesis.speak(utterance);
-    }
-  });
-
-  pauseButton.addEventListener("click", () => {
-    if (paused) {
-      window.speechSynthesis.resume();
-      paused = false;
-      pauseButton.textContent = "Ⅱ";
-      status.textContent = "Reproduzindo notícia…";
-      startTimer();
-    } else {
+    if (window.speechSynthesis.speaking) {
       window.speechSynthesis.pause();
       paused = true;
-      pauseButton.textContent = "▶";
-      status.textContent = "Áudio pausado";
       clearTimer();
+      setButton(false);
+      status.textContent = "Áudio pausado";
+      return;
+    }
+    if (finished) resetPlayer("Narração em português · duração aproximada " + formatAudioTime(estimatedSeconds));
+    if (elapsed === 0 || finished || currentChunk === 0) {
+      runId++;
+      currentChunk = 0;
+      paused = false;
+      finished = false;
+      elapsed = 0;
+      updateTime();
+      setButton(true);
+      status.textContent = "Preparando áudio…";
+      speakChunk(runId);
     }
   });
 
-  stopButton.addEventListener("click", () => stopAudio(true));
-  window.addEventListener("pagehide", () => stopAudio(true), { once: true });
+  window.addEventListener("pagehide", () => resetPlayer(""), { once: true });
 }
-
 
 function renderArticleDetail(article) {
   const title = escapeHTML(getTitle(article));
