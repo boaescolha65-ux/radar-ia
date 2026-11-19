@@ -765,6 +765,20 @@
    PÁGINA DA NOTÍCIA — VISUAL EDITORIAL
 ========================================= */
 
+.about-page {
+  display: none;
+  min-height: 50vh;
+}
+.about-page.visible {
+  display: block;
+}
+body.article-view #faq,
+body.article-view #contato,
+body.about-view #faq,
+body.about-view #contato {
+  display: none;
+}
+
 .article-page {
   display: none;
   padding: 35px 0 85px;
@@ -1479,7 +1493,7 @@
       <nav class="main-nav" id="mainNav" aria-label="Navegação principal">
         <a href="#inicio">Início</a>
         <a href="#noticias">Notícias</a>
-        <a href="#sobre">Sobre</a>
+        <a href="/sobre">Sobre</a>
         <a href="#faq">FAQ</a>
         <a class="header-contact" href="#contato">Fale conosco</a>
       </nav>
@@ -1498,7 +1512,7 @@
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#noticias">Explorar notícias</a>
-            <a class="button button-outline" href="#sobre">Conheça o portal</a>
+            <a class="button button-outline" href="/sobre">Conheça o portal</a>
           </div>
         </div>
       </div>
@@ -1566,6 +1580,11 @@
      
     </main>
     
+
+
+  </div>
+
+<section class="about-page" id="aboutPage">
 <section class="info-section" id="sobre">
   <div class="container">
     <div class="info-grid">
@@ -1639,8 +1658,7 @@
     </div>
   </div>
 </section>
-
-  </div>
+</section>
 
   <section class="article-page" id="articlePage">
     <div class="container">
@@ -1728,7 +1746,7 @@
           <div class="footer-links">
             <a href="#inicio">Início</a>
             <a href="#noticias">Últimas notícias</a>
-            <a href="#sobre">Sobre o portal</a>
+            <a href="/sobre">Sobre o portal</a>
             <a href="#faq">Perguntas frequentes</a>
             <a href="#contato">Contato</a>
           </div>
@@ -1749,7 +1767,7 @@
   <span>© <span id="currentYear"></span> O Seu Radar. Todos os direitos reservados.</span>
 
   <nav class="footer-nav" aria-label="Navegação do rodapé">
-    <a href="#sobre">Sobre o Seu Radar</a>
+    <a href="/sobre">Sobre o Seu Radar</a>
     <a href="#faq">FAQ</a>
     <a href="#contato">Fale conosco</a>
   </nav>
@@ -1779,6 +1797,7 @@
     const elements = {
       home: document.getElementById("homePage"),
       articlePage: document.getElementById("articlePage"),
+      aboutPage: document.getElementById("aboutPage"),
       articleDetail: document.getElementById("articleDetail"),
       grid: document.getElementById("articlesGrid"),
       featured: document.getElementById("featuredArea"),
@@ -2560,7 +2579,10 @@ async function showArticle(id) {
       if (window.location.href !== currentUrl) return;
 
       elements.home.classList.add("hidden");
+      elements.aboutPage.classList.remove("visible");
       elements.articlePage.classList.add("visible");
+      document.body.classList.add("article-view");
+      document.body.classList.remove("about-view");
 
       elements.articleDetail.innerHTML = `
         <div class="state-message">
@@ -2587,7 +2609,10 @@ async function showArticle(id) {
   }
 
   elements.home.classList.add("hidden");
+  elements.aboutPage.classList.remove("visible");
   elements.articlePage.classList.add("visible");
+  document.body.classList.add("article-view");
+  document.body.classList.remove("about-view");
 
   window.scrollTo({ top: 0, behavior: "instant" });
 
@@ -2597,12 +2622,35 @@ async function showArticle(id) {
 
     function showHome() {
       elements.articlePage.classList.remove("visible");
+      elements.aboutPage.classList.remove("visible");
       elements.home.classList.remove("hidden");
+      document.body.classList.remove("article-view", "about-view");
       resetHomeSEO();
       document.title = "O Seu Radar | Inteligência artificial e tecnologia";
     }
 
+    function showAbout() {
+      elements.home.classList.add("hidden");
+      elements.articlePage.classList.remove("visible");
+      elements.aboutPage.classList.add("visible");
+      document.body.classList.add("about-view");
+      document.body.classList.remove("article-view");
+      document.title = "Sobre o O Seu Radar | Tecnologia e inteligência artificial";
+      document.getElementById("pageDescription")?.setAttribute("content", "Conheça o O Seu Radar, seu portal independente de notícias sobre tecnologia da informação e inteligência artificial.");
+      document.getElementById("pageCanonical")?.setAttribute("href", "https://oseuradar.com.br/sobre");
+      setMeta("ogType", "website");
+      setMeta("ogTitle", "Sobre o O Seu Radar | Tecnologia e inteligência artificial");
+      setMeta("ogDescription", "Conheça o O Seu Radar e seu compromisso editorial.");
+      setMeta("ogUrl", "https://oseuradar.com.br/sobre");
+      document.getElementById("articleStructuredData")?.remove();
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+
     function handleRoute() {
+      if (window.location.pathname === "/sobre" || window.location.pathname === "/sobre/") {
+        showAbout();
+        return;
+      }
       // Formato amigável: /noticia/slug-ID
       const params = new URLSearchParams(window.location.search);
       let id = params.get("noticia");
@@ -2740,11 +2788,29 @@ async function showArticle(id) {
     });
 
 
-    // Links internos do portal devem sair da visualização da notícia antes
-    // de navegar para as seções da página inicial.
+    // Navegação para a página Sobre.
+    document.addEventListener("click", event => {
+      const link = event.target.closest('a[href="/sobre"]');
+      if (!link) return;
+      event.preventDefault();
+      window.history.pushState({}, "", "/sobre");
+      showAbout();
+      elements.nav.classList.remove("open");
+      document.body.classList.remove("menu-open");
+      elements.menuToggle.setAttribute("aria-expanded", "false");
+      elements.menuToggle.textContent = "☰";
+    });
+
+
+    // Links internos do portal devem sair das visualizações de notícia ou Sobre
+    // antes de navegar para as seções da página inicial.
     document.addEventListener("click", event => {
       const link = event.target.closest('a[href^="#"]');
-      if (!link || !elements.articlePage.classList.contains("visible")) return;
+      if (
+        !link ||
+        (!elements.articlePage.classList.contains("visible") &&
+         !elements.aboutPage.classList.contains("visible"))
+      ) return;
 
       const hash = link.getAttribute("href");
       if (!hash || hash === "#") return;
