@@ -2741,8 +2741,16 @@ function setupArticleAudio(article) {
     const wasPlaying = playing;
     const wasPaused = paused;
     if (audio) audio.pause();
-    if (wasPlaying || wasPaused) playFrom(index, offset);
-    else { loadPartAudio(index, offset); updateProgress(); }
+    if (wasPlaying) {
+      playFrom(index, offset);
+    } else {
+      loadPartAudio(index, offset);
+      playing = false;
+      paused = wasPaused;
+      setPlayButton(false);
+      setStatus(wasPaused ? "Áudio pausado" : "Posição selecionada");
+      updateProgress();
+    }
   });
   backButton?.addEventListener("click", () => {
     const target = Math.max(0, getPosition() - 10);
