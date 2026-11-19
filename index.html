@@ -2548,17 +2548,18 @@ function setupArticleAudio(article) {
   let speechRate = 1;
   let estimatedSeconds = baseEstimatedSeconds;
   const speeds = [1, 1.25, 1.5, 1.75, 2];
-  // Divide textos longos em blocos para evitar interrupções comuns da Speech API.
+  // Blocos menores permitem que a velocidade escolhida entre em vigor rapidamente,
+  // sem cancelar nem reiniciar a fala que já está em andamento.
   const chunks = [];
   let remaining = text;
   while (remaining.length) {
-    if (remaining.length <= 220) {
+    if (remaining.length <= 110) {
       chunks.push(remaining);
       break;
     }
-    let cut = remaining.lastIndexOf(". ", 220);
-    if (cut < 100) cut = remaining.lastIndexOf(" ", 220);
-    if (cut < 1) cut = 220;
+    let cut = remaining.lastIndexOf(". ", 110);
+    if (cut < 55) cut = remaining.lastIndexOf(" ", 110);
+    if (cut < 1) cut = 110;
     chunks.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trim();
   }
@@ -2651,10 +2652,8 @@ function setupArticleAudio(article) {
   };
 
   durationLabel.textContent = formatAudioTime(estimatedSeconds);
-  let restartChunkOnResume = false;
   speedButton?.addEventListener("click", () => {
     const wasPlaying = window.speechSynthesis.speaking && !paused;
-    const wasPaused = paused;
     const nextIndex = (speeds.indexOf(speechRate) + 1) % speeds.length;
     speechRate = speeds[nextIndex];
     estimatedSeconds = Math.max(1, Math.round(baseEstimatedSeconds / speechRate));
@@ -2663,23 +2662,12 @@ function setupArticleAudio(article) {
     durationLabel.textContent = formatAudioTime(estimatedSeconds);
     updateTime();
 
-    // A Web Speech API não altera a velocidade de um utterance já iniciado.
-    // Reinicia o trecho atual na nova taxa, ou deixa preparado para retomar.
-    if (wasPlaying || wasPaused) {
-      runId++;
-      const token = runId;
-      clearTimer();
-      window.speechSynthesis.cancel();
-      if (wasPaused) {
-        paused = true;
-        restartChunkOnResume = true;
-        status.textContent = "Áudio pausado · velocidade " + speechRate + "×";
-      } else {
-        paused = false;
-        restartChunkOnResume = false;
-        status.textContent = "Reiniciando trecho em " + speechRate + "×";
-        speakChunk(token);
-      }
+    // O SpeechSynthesis não muda a taxa de um trecho já iniciado.
+    // A escolha é aplicada ao próximo bloco curto, sem cancelar/reiniciar o áudio.
+    if (paused) {
+      status.textContent = "Áudio pausado · próxima fala em " + speechRate + "×";
+    } else if (wasPlaying) {
+      status.textContent = "Velocidade " + speechRate + "× · aplicada no próximo trecho";
     } else {
       status.textContent = "Narração em português · " + speechRate + "× · duração aproximada " + formatAudioTime(estimatedSeconds);
     }
@@ -2687,17 +2675,10 @@ function setupArticleAudio(article) {
   button.addEventListener("click", () => {
     if (paused) {
       paused = false;
-      if (restartChunkOnResume) {
-        restartChunkOnResume = false;
-        status.textContent = "Retomando em " + speechRate + "×";
-        setButton(true);
-        speakChunk(runId);
-      } else {
-        window.speechSynthesis.resume();
-        setButton(true);
-        status.textContent = "Retomando leitura…";
-        startTimer();
-      }
+      window.speechSynthesis.resume();
+      setButton(true);
+      status.textContent = "Retomando leitura…";
+      startTimer();
       return;
     }
     if (window.speechSynthesis.speaking) {
