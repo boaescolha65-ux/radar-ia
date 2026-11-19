@@ -2635,7 +2635,9 @@ function setupArticleAudio(article) {
   const generateAudio = async () => {
     if (generating || disposed) return;
     generating = true;
-    button.disabled = true;
+    button.disabled = false;
+    button.textContent = "×";
+    button.setAttribute("aria-label", "Cancelar geração de áudio");
     generationController = new AbortController();
     setStatus("Gerando narração · 0/" + chunks.length + " trechos…");
     try {
@@ -2675,10 +2677,14 @@ function setupArticleAudio(article) {
       durationLabel.textContent = timeLabel(totalDuration);
       generating = false;
       button.disabled = false;
+      button.textContent = "▶";
+      button.setAttribute("aria-label", "Reproduzir notícia");
       await playFrom(0);
     } catch (error) {
       generating = false;
       button.disabled = false;
+      button.textContent = "▶";
+      button.setAttribute("aria-label", "Reproduzir notícia");
       if (error.name === "AbortError") setStatus("Geração de áudio cancelada.");
       else setStatus(error.message || "Não foi possível gerar a narração.");
       cleanupUrls();
