@@ -1,6 +1,7 @@
 /robots.txt   https://radar-ia-api.boaescolha65.workers.dev/robots.txt   200
 /sitemap.xml  https://radar-ia-api.boaescolha65.workers.dev/sitemap.xml  200
 /noticia/ia-agentica-empresas-brasileiras-avancam-mas-governanca-ainda-preocupa-2122  /410.html  410
+/sobre         /index.html   200
 /noticia/*    /index.html   200
 
 mgid.com, 870178, DIRECT, d4c29acad76ce94f
