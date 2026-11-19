@@ -1496,6 +1496,10 @@ body.about-view #contato {
 .audio-news-player .audio-toggle:focus-visible { outline:3px solid #5eead4; outline-offset:3px; }
 .audio-news-player .audio-toggle:disabled { opacity:.55; cursor:not-allowed; transform:none; }
 .audio-news-player .audio-info { min-width:0; }
+.audio-news-player .audio-info-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.audio-news-player .audio-speed { flex-shrink:0; padding:6px 10px; border:1px solid #d8e1e9; border-radius:999px; background:#fff; color:#243348; cursor:pointer; font-size:12px; font-weight:800; }
+.audio-news-player .audio-speed:hover { border-color:#087f72; color:#087f72; }
+.audio-news-player .audio-speed:focus-visible { outline:3px solid #5eead4; outline-offset:2px; }
 .audio-news-player .audio-label { display:block; color:#202b3c; font-size:14px; font-weight:800; }
 .audio-news-player .audio-status { display:block; margin-top:2px; color:#748094; font-size:12px; }
 .audio-news-player .audio-progress-wrap {
@@ -2489,7 +2493,10 @@ function createArticleAudioPlayer(article) {
       <button type="button" class="audio-toggle" id="audioToggleButton"
         aria-label="Reproduzir notícia" title="Reproduzir notícia">▶</button>
       <div class="audio-info">
-        <span class="audio-label">Ouça esta notícia</span>
+        <div class="audio-info-row">
+          <span class="audio-label">Ouça esta notícia</span>
+          <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade da narração" title="Alterar velocidade">1×</button>
+        </div>
         <span class="audio-status" id="audioStatus" role="status">Narração em português · duração aproximada ${formatAudioTime(estimatedSeconds)}</span>
       </div>
       <div class="audio-progress-wrap" aria-label="Progresso da narração">
@@ -2505,6 +2512,7 @@ function createArticleAudioPlayer(article) {
 
 function setupArticleAudio(article) {
   const button = document.getElementById("audioToggleButton");
+  const speedButton = document.getElementById("audioSpeedButton");
   const status = document.getElementById("audioStatus");
   const elapsedLabel = document.getElementById("audioElapsed");
   const durationLabel = document.getElementById("audioDuration");
@@ -2536,7 +2544,10 @@ function setupArticleAudio(article) {
     .trim();
 
   const words = text.split(/\\s+/).filter(Boolean);
-  const estimatedSeconds = Math.max(1, Math.round(words.length / 150 * 60));
+  const baseEstimatedSeconds = Math.max(1, Math.round(words.length / 150 * 60));
+  let speechRate = 1;
+  let estimatedSeconds = baseEstimatedSeconds;
+  const speeds = [1, 1.25, 1.5, 1.75, 2];
   // Divide textos longos em blocos para evitar interrupções comuns da Speech API.
   const chunks = [];
   let remaining = text;
@@ -2617,7 +2628,7 @@ function setupArticleAudio(article) {
     }
     const part = new SpeechSynthesisUtterance(chunks[currentChunk]);
     part.lang = "pt-BR";
-    part.rate = 1;
+    part.rate = speechRate;
     const voice = chooseVoice();
     if (voice) part.voice = voice;
     part.onstart = () => {
@@ -2640,6 +2651,20 @@ function setupArticleAudio(article) {
   };
 
   durationLabel.textContent = formatAudioTime(estimatedSeconds);
+  speedButton?.addEventListener("click", () => {
+    const nextIndex = (speeds.indexOf(speechRate) + 1) % speeds.length;
+    speechRate = speeds[nextIndex];
+    estimatedSeconds = Math.max(1, Math.round(baseEstimatedSeconds / speechRate));
+    speedButton.textContent = String(speechRate).replace(".", ",") + "×";
+    speedButton.setAttribute("aria-label", "Velocidade " + speechRate + " vezes. Clique para alterar.");
+    durationLabel.textContent = formatAudioTime(estimatedSeconds);
+    updateTime();
+    if (window.speechSynthesis.speaking && !paused) {
+      status.textContent = "Velocidade " + speechRate + "× · aplicada a partir do próximo trecho";
+    } else if (!window.speechSynthesis.speaking && !paused) {
+      status.textContent = "Narração em português · " + speechRate + "× · duração aproximada " + formatAudioTime(estimatedSeconds);
+    }
+  });
   button.addEventListener("click", () => {
     if (paused) {
       paused = false;
