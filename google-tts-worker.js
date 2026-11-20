@@ -44,6 +44,106 @@ function authorized(request, env) {
   const token = request.headers.get("Authorization") || "";
   return Boolean(env.ADMIN_TOKEN && token === "Bearer " + env.ADMIN_TOKEN);
 }
+
+const EDGE_TTS_URL = "https://radar-ia-mlww.onrender.com/api/tts";
+const TTS_MAX_TEXT = 1400;
+const TTS_DAILY_LIMIT = 40;
+const TTS_CACHE_TTL = 60 * 60 * 24 * 14;
+
+async function ttsSha256(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function ttsRateLimit(env, ip) {
+  if (!env.TTS_KV) return true;
+  const key = "tts-limit:" + (await ttsSha256(ip || "unknown")).slice(0, 32);
+  const current = Number(await env.TTS_KV.get(key) || 0);
+  if (current >= TTS_DAILY_LIMIT) return false;
+  await env.TTS_KV.put(key, String(current + 1), { expirationTtl: 86400 });
+  return true;
+}
+
+async function handleTTS(request, env, headers) {
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, headers);
+  if (!env.EDGE_TTS_API_KEY) {
+    return json({ error: "Serviço de áudio não configurado: falta o secret EDGE_TTS_API_KEY no Worker." }, 503, headers);
+  }
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: "JSON inválido." }, 400, headers); }
+
+  const text = typeof body?.text === "string" ? body.text.trim() : "";
+  if (!text) return json({ error: "Texto vazio." }, 400, headers);
+  if (text.length > TTS_MAX_TEXT) {
+    return json({ error: "Trecho excede 1.400 caracteres." }, 413, headers);
+  }
+
+  const cacheKey = "edge-audio:pt-BR-FranciscaNeural:" + await ttsSha256(text);
+  if (env.TTS_KV) {
+    try {
+      const cached = await env.TTS_KV.get(cacheKey, "arrayBuffer");
+      if (cached) {
+        return new Response(cached, {
+          status: 200,
+          headers: { ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "HIT" }
+        });
+      }
+    } catch (error) {
+      console.warn("[TTS] falha ao ler cache KV:", String(error));
+    }
+  }
+
+  try {
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    if (!(await ttsRateLimit(env, ip))) {
+      return json({ error: "Limite diário de 40 trechos por IP atingido. Tente amanhã." }, 429, headers);
+    }
+
+    const response = await fetch(EDGE_TTS_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + env.EDGE_TTS_API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg"
+      },
+      body: JSON.stringify({ text })
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("[TTS] Render respondeu com erro:", response.status, detail.slice(0, 500));
+      return json({
+        error: response.status === 401
+          ? "A autenticação do serviço de áudio no Render falhou."
+          : response.status === 429
+            ? "O serviço de áudio está temporariamente limitado."
+            : "O Render não conseguiu gerar o áudio. Tente novamente."
+      }, response.status === 429 ? 429 : 502, headers);
+    }
+
+    const audio = await response.arrayBuffer();
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!audio.byteLength || audio.byteLength > 4 * 1024 * 1024 || !contentType.toLowerCase().includes("audio/")) {
+      return json({ error: "O Render retornou um arquivo de áudio inválido ou vazio." }, 502, headers);
+    }
+
+    if (env.TTS_KV) {
+      try { await env.TTS_KV.put(cacheKey, audio, { expirationTtl: TTS_CACHE_TTL }); }
+      catch (error) { console.warn("[TTS] falha ao gravar cache KV:", String(error)); }
+    }
+
+    return new Response(audio, {
+      status: 200,
+      headers: { ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "MISS" }
+    });
+  } catch (error) {
+    console.error("[TTS] falha na conexão com Render:", error && error.stack ? error.stack : String(error));
+    return json({ error: "Não foi possível conectar ao serviço de áudio no Render." }, 502, headers);
+  }
+}
+
 async function handleArticles(request, env, headers) {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405, headers);
   if (!env.DB) return json({ error: "D1 binding DB não configurado." }, 503, headers);
@@ -158,7 +258,7 @@ export default {
     }
     if (url.pathname === "/sitemap.xml" && request.method === "GET") return handleSitemap(env);
     if (url.pathname === "/api/articles.json") return handleArticles(request, env, headers);
-    if (url.pathname === "/api/tts") return json({ error: "Serviço de áudio removido. Uma nova alternativa será integrada separadamente." }, 410, headers);
+    if (url.pathname === "/api/tts") return handleTTS(request, env, headers);
     if (url.pathname.startsWith("/admin/")) return handleAdmin(request, env, headers, url.pathname);
     return json({ error: "Not found" }, 404, headers);
   },
