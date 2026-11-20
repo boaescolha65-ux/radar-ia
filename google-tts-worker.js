@@ -56,7 +56,7 @@ function xmlEscape(value) {
 function slugifyTitle(value) {
   return String(value || "noticia")
     .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -65,7 +65,7 @@ function slugifyTitle(value) {
 }
 async function handleRobots() {
   return new Response(
-    "User-agent: *\\nAllow: /\\nDisallow: /admin\\n\\nSitemap: https://oseuradar.com.br/sitemap.xml\\n",
+    "User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: https://oseuradar.com.br/sitemap.xml\n",
     { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } }
   );
 }
