@@ -45,7 +45,7 @@ export async function onRequest(context) {
         redirect: "follow",
         headers: { "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" }
       });
-      if (!response.ok) return "";
+      if (!response.ok) return original;
       const type = (response.headers.get("content-type") || "").toLowerCase();
       if (type.startsWith("image/")) return response.url || original;
       if (type.includes("text/html") || type.includes("application/xhtml")) {
@@ -67,7 +67,7 @@ export async function onRequest(context) {
     } catch (error) {
       console.warn("Não foi possível resolver a URL da imagem:", String(error));
     }
-    return "";
+    return original;
   }
   const image = await resolveImageUrl(article.image_url);
   const canonical = "https://oseuradar.com.br/noticia/" + slugify(title) + "-" + id;
