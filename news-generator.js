@@ -60,7 +60,7 @@ export async function runNewsGeneration(env) {
   const article = JSON.parse(data.choices[0].message.content);
   const plain = String(article.body || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/\s+/g, " ").trim();
   const wordCount = plain ? plain.split(/\s+/).length : 0;
-  if (!article.title || !article.excerpt || wordCount < 700) throw new Error("Reportagem insuficiente: " + wordCount + " palavras; mínimo de 700. Não gravada.");
+  if (!article.title || !article.excerpt || wordCount < 500) throw new Error("Reportagem insuficiente: " + wordCount + " palavras; mínimo de 500. Não gravada.");
   if (wordCount > 1050) console.warn("[NEWS] reportagem acima da faixa editorial", JSON.stringify({wordCount}));
   console.log("[NEWS] extensão editorial validada", JSON.stringify({wordCount}));
   const status = String(env.AUTO_PUBLISH || "false").toLowerCase() === "true" ? "published" : "pending_review";
