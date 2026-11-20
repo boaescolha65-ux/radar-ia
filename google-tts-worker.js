@@ -161,7 +161,7 @@ export default {
     if (url.pathname === "/api/tts") return json({ error: "Serviço de áudio removido. Uma nova alternativa será integrada separadamente." }, 410, headers);
     if (url.pathname.startsWith("/admin/")) return handleAdmin(request, env, headers, url.pathname);
     return json({ error: "Not found" }, 404, headers);
-  }
+  },
   async scheduled(controller, env, ctx) {
     const task = runNewsGeneration(env).catch(error => {
       console.error("Falha na geração automática de notícias:", error && error.stack ? error.stack : String(error));
