@@ -37,7 +37,39 @@ export async function onRequest(context) {
   const body = String(article.body_pt || article.body || excerpt);
   const source = String(article.source_name || "Fonte original");
   const sourceUrl = /^https?:\/\//i.test(String(article.source_url || "")) ? String(article.source_url) : "";
-  const image = /^https?:\/\//i.test(String(article.image_url || "")) ? String(article.image_url) : "";
+  async function resolveImageUrl(value) {
+    const original = String(value || "").trim();
+    if (!/^https?:\/\//i.test(original)) return "";
+    try {
+      const response = await fetch(original, {
+        redirect: "follow",
+        headers: { "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" }
+      });
+      if (!response.ok) return "";
+      const type = (response.headers.get("content-type") || "").toLowerCase();
+      if (type.startsWith("image/")) return response.url || original;
+      if (type.includes("text/html") || type.includes("application/xhtml")) {
+        const html = await response.text();
+        const tags = [
+          /<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+          /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image["'][^>]*>/i,
+          /<meta[^>]+(?:name|property)=["']twitter:image["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+          /<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["']twitter:image["'][^>]*>/i
+        ];
+        for (const pattern of tags) {
+          const match = html.match(pattern);
+          if (match && match[1]) {
+            const candidate = new URL(match[1].replace(/&amp;/g, "&"), response.url || original);
+            if (candidate.protocol === "https:" || candidate.protocol === "http:") return candidate.href;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("Não foi possível resolver a URL da imagem:", String(error));
+    }
+    return "";
+  }
+  const image = await resolveImageUrl(article.image_url);
   const canonical = "https://oseuradar.com.br/noticia/" + slugify(title) + "-" + id;
   const date = article.published_at || article.created_at || "";
   const description = (excerpt || body).replace(/\s+/g," ").slice(0,155);
