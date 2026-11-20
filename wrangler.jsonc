@@ -1,0 +1,6 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "radar-ia-api",
+  "main": "google-tts-worker.js",
+  "compatibility_date": "2026-11-19"
+}
