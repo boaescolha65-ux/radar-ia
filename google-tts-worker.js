@@ -189,6 +189,18 @@ async function handleAdmin(request, env, headers, pathname) {
       return json({ ok: true, id, status }, 200, headers);
     }
 
+    if (pathname === "/admin/update-image") {
+      const id = Number(body?.id);
+      const imageUrl = String(body?.image_url ?? "").trim();
+      if (!Number.isInteger(id) || id <= 0) return json({ error: "ID inválido." }, 400, headers);
+      if (imageUrl && !/^https?:\/\//i.test(imageUrl)) return json({ error: "A imagem deve usar um endereço HTTP ou HTTPS." }, 400, headers);
+      const result = await env.DB.prepare(
+        "UPDATE articles SET image_url = ? WHERE id = ?"
+      ).bind(imageUrl || null, id).run();
+      if (!result.meta?.changes) return json({ error: "Notícia não encontrada ou imagem já estava igual." }, 404, headers);
+      return json({ ok: true, id, image_url: imageUrl || null }, 200, headers);
+    }
+
     if (pathname === "/admin/update-article") {
       const id = Number(body?.id);
       const title = String(body?.title_pt ?? "").trim();
