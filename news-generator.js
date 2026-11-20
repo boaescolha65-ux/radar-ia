@@ -64,7 +64,7 @@ export async function runNewsGeneration(env) {
   if (wordCount > 1050) console.warn("[NEWS] reportagem acima da faixa editorial", JSON.stringify({wordCount}));
   console.log("[NEWS] extensão editorial validada", JSON.stringify({wordCount}));
   const status = String(env.AUTO_PUBLISH || "false").toLowerCase() === "true" ? "published" : "pending_review";
-  const saved = await env.DB.prepare("INSERT INTO articles (category,title,excerpt,body,source_name,source_url,status,created_at,published_at,title_pt,excerpt_pt,body_pt,image_url,video_url) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?,NULL,NULL)").bind("Inteligência Artificial",article.title,article.excerpt,article.body,item.source,item.link,status,status,article.title,article.excerpt,article.body).run();
+  const saved = await env.DB.prepare("INSERT INTO articles (category,title,excerpt,body,source_name,source_url,status,created_at,published_at,title_pt,excerpt_pt,body_pt,image_url,video_url) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?,NULL,NULL)").bind("Inteligência Artificial",article.title,article.excerpt,article.body,item.source,item.link,status,article.title,article.excerpt,article.body).run();
   const result = { ok: true, id: saved.meta.last_row_id, title: article.title, status: status };
   console.log("[NEWS] notícia gravada no D1", JSON.stringify(result));
   return result;
