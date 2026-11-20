@@ -2,5 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "radar-ia-api",
   "main": "google-tts-worker.js",
-  "compatibility_date": "2026-11-19"
+  "compatibility_date": "2026-11-19",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "radar-ia-db",
+      "database_id": "7c10231c-7142-46c9-9bca-a13012edbd53"
+    }
+  ]
 }
