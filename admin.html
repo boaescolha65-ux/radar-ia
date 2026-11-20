@@ -161,6 +161,18 @@
       <div id="message" role="status" aria-live="polite"></div>
     </div>
 
+    <section class="panel" id="publishedImagePanel">
+      <h2>Corrigir imagem de notícia publicada</h2>
+      <p class="muted">Informe o ID e cole um link direto de imagem ou o link de uma página que contenha uma imagem principal (por exemplo, Wikimedia Commons). O sistema seguirá redirecionamentos e tentará localizar a imagem social (Open Graph/Twitter).</p>
+      <form id="publishedImageForm">
+        <label for="publishedImageId">ID da notícia</label>
+        <input id="publishedImageId" type="number" min="1" step="1" required placeholder="Ex.: 2267">
+        <label for="publishedImageUrl">Link da imagem ou página</label>
+        <input id="publishedImageUrl" type="url" maxlength="2000" required placeholder="https://">
+        <button class="primary" id="savePublishedImageButton" type="submit">Atualizar imagem da notícia</button>
+      </form>
+    </section>
+
     <section class="panel" id="newArticlePanel" hidden>
       <h2>Inserir nova notícia</h2>
       <p class="muted">A notícia será cadastrada como pendente e não ficará pública até ser aprovada.</p>
@@ -716,6 +728,33 @@ busy = false;
       saveNewArticleButton.disabled = false;
       saveNewArticleButton.textContent = "Salvar como pendente";
       await loadArticles();
+    }
+  });
+
+  document.getElementById("publishedImageForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    const button = document.getElementById("savePublishedImageButton");
+    const id = Number(document.getElementById("publishedImageId").value);
+    const imageUrl = document.getElementById("publishedImageUrl").value.trim();
+    if (!Number.isInteger(id) || id <= 0 || !/^https?:\/\//i.test(imageUrl)) {
+      showMessage("Informe um ID válido e um link HTTP ou HTTPS.", "error");
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "Atualizando...";
+    try {
+      await apiRequest("/admin/update-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, image_url: imageUrl })
+      });
+      showMessage("Link da imagem salvo para a notícia " + id + ". A página tentará resolver redirecionamentos e metadados de imagem.", "success");
+      document.getElementById("publishedImageForm").reset();
+    } catch (error) {
+      showMessage(error.message || "Falha ao atualizar imagem.", "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Atualizar imagem da notícia";
     }
   });
 
