@@ -23,3 +23,6 @@ amxrtb.com, 105199704, DIRECT
 appnexus.com, 15825, RESELLER, f5ab79cb980f11d1
 appnexus.com, 1019, RESELLER, f5ab79cb980f11d1
 onetag.com, 7cd9d7c7c13ff36, DIRECT
+
+Google Adsense
+google.com, pub-1493087992822593, DIRECT, f08c47fec0942fa0
