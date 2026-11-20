@@ -1991,7 +1991,7 @@ function getCategory(article) {
     function truncateText(value, max = 185) {
       const text = String(value || "").replace(/\s+/g, " ").trim();
       if (text.length <= max) return text;
-      return text.slice(0, max).replace(/\s+\\S*$/, "") + "…";
+      return text.slice(0, max).replace(/\s+\S*$/, "") + "…";
     }
 
     function slugifyTitle(value) {
