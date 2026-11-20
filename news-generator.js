@@ -21,17 +21,17 @@ export async function runNewsGeneration(env) {
         return x ? x[1].replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").trim() : "";
       };
       const link = get("link") || ((b.match(/<link\b[^>]*href=["']([^"']+)["']/i) || [])[1] || "");
-      const imageTags = [...b.matchAll(/<(media:thumbnail|media:content|enclosure)\\b[^>]*>/gi)].map(m=>m[0]);
+      const imageTags = [...b.matchAll(/<(media:thumbnail|media:content|enclosure)\b[^>]*>/gi)].map(m=>m[0]);
       const imageCandidates = imageTags.map(tag => {
-        const urlMatch = tag.match(/\\burl=["']([^"']+)["']/i);
-        const typeMatch = tag.match(/\\btype=["']([^"']+)["']/i);
-        const mediumMatch = tag.match(/\\bmedium=["']([^"']+)["']/i);
+        const urlMatch = tag.match(/\burl=["']([^"']+)["']/i);
+        const typeMatch = tag.match(/\btype=["']([^"']+)["']/i);
+        const mediumMatch = tag.match(/\bmedium=["']([^"']+)["']/i);
         if (!urlMatch) return "";
         if (/media:content/i.test(tag) && (typeMatch || mediumMatch) && !/image/i.test((typeMatch?.[1] || mediumMatch?.[1] || ""))) return "";
         if (/enclosure/i.test(tag) && typeMatch && !/image/i.test(typeMatch[1])) return "";
         return urlMatch[1];
       }).filter(Boolean);
-      const inlineImg = b.match(/<img\\b[^>]*src=["']([^"']+)["']/i);
+      const inlineImg = b.match(/<img\b[^>]*src=["']([^"']+)["']/i);
       if (inlineImg) imageCandidates.push(inlineImg[1]);
       return { title: get("title"), excerpt: get("description") || get("summary") || get("content"), link, date: get("pubDate") || get("published") || get("updated"), image: imageCandidates[0] || "", source: new URL(url).hostname.replace(/^www\./, "") };
     }).filter(x => x.title && x.link && /^https?:\/\//i.test(x.link));
@@ -58,18 +58,18 @@ export async function runNewsGeneration(env) {
     if (r.ok) {
       const html = await r.text();
       if (!imageUrl) {
-        const metaTags = [...html.matchAll(/<meta\\b[^>]*>/gi)].map(x => x[0]);
+        const metaTags = [...html.matchAll(/<meta\b[^>]*>/gi)].map(x => x[0]);
         for (const tag of metaTags) {
-          const key = (tag.match(/\\b(?:property|name)=["']([^"']+)["']/i) || [])[1] || "";
+          const key = (tag.match(/\b(?:property|name)=["']([^"']+)["']/i) || [])[1] || "";
           if (/^(og:image|og:image:url|twitter:image|twitter:image:src)$/i.test(key)) {
-            const match = tag.match(/\\bcontent=["']([^"']+)["']/i);
+            const match = tag.match(/\bcontent=["']([^"']+)["']/i);
             if (match) { try { imageUrl = new URL(match[1], item.link).href; } catch (_) {} }
             if (imageUrl) break;
           }
         }
       }
       if (!imageUrl) {
-        const scripts = [...html.matchAll(/<script\\b[^>]*type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi)];
+        const scripts = [...html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
         const findImage = obj => {
           if (!obj || typeof obj !== "object") return "";
           if (Array.isArray(obj)) { for (const child of obj) { const found=findImage(child); if(found)return found; } return ""; }
@@ -85,8 +85,8 @@ export async function runNewsGeneration(env) {
         }
       }
       if (!imageUrl) {
-        for (const tag of [...html.matchAll(/<img\\b[^>]*>/gi)].map(m=>m[0])) {
-          const src=tag.match(/\\b(?:src|data-src|data-original)=["']([^"']+)["']/i);
+        for (const tag of [...html.matchAll(/<img\b[^>]*>/gi)].map(m=>m[0])) {
+          const src=tag.match(/\b(?:src|data-src|data-original)=["']([^"']+)["']/i);
           if(src && !/(logo|icon|avatar|pixel|tracking)/i.test(src[1])) { try { imageUrl=new URL(src[1],item.link).href;break; } catch (_) {} }
         }
       }
@@ -94,7 +94,8 @@ export async function runNewsGeneration(env) {
     }
   } catch (e) { console.warn("Falha ao ler matéria original", String(e)); }
   try { if (imageUrl) imageUrl = new URL(imageUrl, item.link).href; } catch (_) { imageUrl = ""; }
-  if (!/^https?:\\/\\//i.test(imageUrl)) imageUrl = "";\n  console.log("[NEWS] imagem da fonte", JSON.stringify({found:!!imageUrl,url:imageUrl || null}));
+  if (!/^https?:\\/\\//i.test(imageUrl)) imageUrl = "";
+  console.log("[NEWS] imagem da fonte", JSON.stringify({found:!!imageUrl,url:imageUrl || null}));
   const prompt = "Você é editor de um veículo jornalístico brasileiro. Produza uma reportagem original em português brasileiro com aproximadamente 800 palavras (faixa desejada: 750 a 850), O título principal da notícia deve ser fornecido exclusivamente no campo JSON title, pois o site já o exibe automaticamente como H1. Não repita o título principal no campo body e nunca use H1 dentro do body. No body, use Markdown simples para subtítulos: uma linha iniciada por "# " representa H2; "## " representa H3; "### " representa H4. Portanto, o primeiro nível de título dentro do texto é sempre H2, nunca H1. Escreva os parágrafos como texto normal, separados por uma linha em branco. Não escreva tags HTML (<h1>, <h2>, <h3>, <h4>, <p> etc.) nem mostre os marcadores Markdown como texto literal no resultado renderizado. Desenvolva o assunto com profundidade, sem repetir ideias nem alongar artificialmente. Explique o que aconteceu, o contexto, como a tecnologia ou decisão funciona, impactos concretos, limitações, pontos ainda incertos e o que o leitor brasileiro precisa entender. Acrescente análise e síntese próprias somente quando sustentadas pelas informações fornecidas; diferencie claramente fatos, declarações e análise. Use atribuição clara para dados e declarações e preserve nomes, datas e números. Não invente fontes, citações, estatísticas, testes, especialistas, consequências ou detalhes ausentes. Se o material não sustentar uma reportagem responsável nessa extensão, informe isso em vez de preencher lacunas. Não copie nem faça tradução literal da fonte. Evite introduções genéricas, conclusões repetitivas e adjetivação promocional. Retorne JSON válido com title, excerpt e body em Markdown simples.";
   const ai = await fetch(env.AI_API_URL || "https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
