@@ -163,8 +163,11 @@ export default {
     return json({ error: "Not found" }, 404, headers);
   },
   async scheduled(controller, env, ctx) {
-    const task = runNewsGeneration(env).catch(error => {
-      console.error("Falha na geração automática de notícias:", error && error.stack ? error.stack : String(error));
+    console.log("[CRON] evento agendado recebido", JSON.stringify({scheduledTime:controller?.scheduledTime,cron:controller?.cron}));
+    const task = runNewsGeneration(env).then(result => {
+      console.log("[CRON] geração finalizada", JSON.stringify(result));
+    }).catch(error => {
+      console.error("[CRON] falha na geração automática de notícias:", error && error.stack ? error.stack : String(error));
     });
     if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(task);
     else await task;
