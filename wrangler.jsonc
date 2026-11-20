@@ -3,6 +3,7 @@
   "name": "radar-ia-api",
   "main": "google-tts-worker.js",
   "compatibility_date": "2026-11-19",
+  "keep_vars": true,
   "d1_databases": [
     {
       "binding": "DB",
