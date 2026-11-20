@@ -101,26 +101,47 @@ async function handleTTS(request, env, headers) {
       return json({ error: "Limite diário de 40 trechos por IP atingido. Tente amanhã." }, 429, headers);
     }
 
-    const response = await fetch(EDGE_TTS_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + env.EDGE_TTS_API_KEY,
-        "Content-Type": "application/json",
-        "Accept": "audio/mpeg"
-      },
-      body: JSON.stringify({ text })
-    });
+    // Render Free pode levar cerca de 1 minuto para acordar após inatividade.
+    // Repetimos apenas falhas transitórias; erros de autenticação/limite não são repetidos.
+    let response = null;
+    let lastError = null;
+    const retryDelays = [5000, 10000, 15000, 20000];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        response = await fetch(EDGE_TTS_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + env.EDGE_TTS_API_KEY,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg"
+          },
+          body: JSON.stringify({ text }),
+          signal: AbortSignal.timeout(35000)
+        });
+        if (response.ok || response.status === 401 || response.status === 403 || response.status === 429) break;
+        if (![408, 500, 502, 503, 504].includes(response.status)) break;
+        const detail = await response.text();
+        lastError = new Error("Render HTTP " + response.status + ": " + detail.slice(0, 300));
+        console.warn("[TTS] Render indisponível na tentativa", attempt + 1, response.status);
+      } catch (error) {
+        lastError = error;
+        console.warn("[TTS] falha transitória na tentativa", attempt + 1, String(error));
+      }
+      if (attempt < retryDelays.length) {
+        await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
+      }
+    }
 
-    if (!response.ok) {
-      const detail = await response.text();
-      console.error("[TTS] Render respondeu com erro:", response.status, detail.slice(0, 500));
+    if (!response || !response.ok) {
+      const status = response?.status || 502;
+      console.error("[TTS] Render não respondeu após tentativas:", status, lastError ? String(lastError) : "");
       return json({
-        error: response.status === 401
+        error: status === 401 || status === 403
           ? "A autenticação do serviço de áudio no Render falhou."
-          : response.status === 429
+          : status === 429
             ? "O serviço de áudio está temporariamente limitado."
-            : "O Render não conseguiu gerar o áudio. Tente novamente."
-      }, response.status === 429 ? 429 : 502, headers);
+            : "O serviço de áudio no Render continua indisponível após novas tentativas. Tente novamente em instantes."
+      }, status === 429 ? 429 : 502, headers);
     }
 
     const audio = await response.arrayBuffer();
