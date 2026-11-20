@@ -2657,7 +2657,7 @@ function setupArticleAudio(article) {
         if (!blob.size) throw new Error("O serviço retornou um trecho vazio.");
         const url = URL.createObjectURL(blob);
         const metadataAudio = new Audio(url);
-        const estimatedDuration = Math.max(1, chunks[i].split(/\\s+/).filter(Boolean).length / 150 * 60);
+        const estimatedDuration = Math.max(1, chunks[i].split(/\s+/).filter(Boolean).length / 150 * 60);
         await new Promise((resolve) => {
           const finish = () => { clearTimeout(timer); resolve(); };
           const timer = window.setTimeout(finish, 3000);
