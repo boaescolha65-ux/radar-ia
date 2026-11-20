@@ -6,14 +6,13 @@
   // Preserve dashboard-managed variables and secrets during Wrangler deployments.
   // EDGE_TTS_API_KEY must remain a Secret in Cloudflare, not a plaintext vars entry.
   "keep_vars": true,
-  
   "observability": {
     "logs": {
       "enabled": true,
       "invocation_logs": true
     }
   },
-"vars": {
+  "vars": {
     "AI_API_URL": "https://api.groq.com/openai/v1/chat/completions",
     "AI_MODEL": "llama-3.3-70b-versatile",
     "RSS_FEEDS": "https://openai.com/news/rss.xml\nhttps://deepmind.google/blog/rss.xml\nhttps://techcrunch.com/category/artificial-intelligence/feed/\nhttps://www.theverge.com/rss/ai-artificial-intelligence/index.xml\nhttps://www.technologyreview.com/topic/artificial-intelligence/feed\nhttps://arstechnica.com/ai/feed/\nhttps://huggingface.co/blog/feed.xml\nhttps://blogs.nvidia.com/feed/"
