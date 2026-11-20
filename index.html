@@ -1989,9 +1989,9 @@ function getCategory(article) {
     }
 
     function truncateText(value, max = 185) {
-      const text = String(value || "").replace(/\\s+/g, " ").trim();
+      const text = String(value || "").replace(/\s+/g, " ").trim();
       if (text.length <= max) return text;
-      return text.slice(0, max).replace(/\\s+\\S*$/, "") + "…";
+      return text.slice(0, max).replace(/\s+\\S*$/, "") + "…";
     }
 
     function slugifyTitle(value) {
@@ -2483,11 +2483,11 @@ function createArticleAudioPlayer(article) {
   const cleanText = (value) => {
     const holder = document.createElement("div");
     holder.innerHTML = String(value || "");
-    return (holder.textContent || holder.innerText || "").replace(/\\s+/g, " ").trim();
+    return (holder.textContent || holder.innerText || "").replace(/\s+/g, " ").trim();
   };
   const text = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
     .map(cleanText).filter(Boolean).join(". ");
-  const estimatedSeconds = Math.max(1, Math.round(text.split(/\\s+/).filter(Boolean).length / 150 * 60));
+  const estimatedSeconds = Math.max(1, Math.round(text.split(/\s+/).filter(Boolean).length / 150 * 60));
   return `
     <section class="audio-news-player" id="articleAudioPlayer" aria-label="Ouvir notícia">
       <button type="button" class="audio-toggle" id="audioToggleButton" aria-label="Reproduzir notícia" title="Reproduzir notícia">▶</button>
@@ -2526,10 +2526,10 @@ function setupArticleAudio(article) {
   const cleanText = (value) => {
     const holder = document.createElement("div");
     holder.innerHTML = String(value || "");
-    return (holder.textContent || holder.innerText || "").replace(/\\s+/g, " ").trim();
+    return (holder.textContent || holder.innerText || "").replace(/\s+/g, " ").trim();
   };
   const text = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
-    .map(cleanText).filter(Boolean).join(". ").replace(/\\s+/g, " ").trim();
+    .map(cleanText).filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
   const chunks = [];
   let remaining = text;
   while (remaining.length > 1400) {
