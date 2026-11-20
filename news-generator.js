@@ -21,7 +21,8 @@ export async function runNewsGeneration(env) {
         return x ? x[1].replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").trim() : "";
       };
       const link = get("link") || ((b.match(/<link\b[^>]*href=["']([^"']+)["']/i) || [])[1] || "");
-      return { title: get("title"), excerpt: get("description") || get("summary") || get("content"), link, date: get("pubDate") || get("published") || get("updated"), source: new URL(url).hostname.replace(/^www\./, "") };
+      const imageMatch = b.match(/<(?:media:content|media:thumbnail|enclosure)\b[^>]*(?:url|href)=["']([^"']+)["'][^>]*>/i) || b.match(/<img\b[^>]*src=["']([^"']+)["']/i);
+      return { title: get("title"), excerpt: get("description") || get("summary") || get("content"), link, date: get("pubDate") || get("published") || get("updated"), image: imageMatch ? imageMatch[1] : "", source: new URL(url).hostname.replace(/^www\./, "") };
     }).filter(x => x.title && x.link && /^https?:\/\//i.test(x.link));
   }));
   const items = [];
@@ -40,11 +41,26 @@ export async function runNewsGeneration(env) {
   if (!item) { console.log("[NEWS] nenhum artigo novo elegível", JSON.stringify({items:items.length})); return { skipped: "no_new_articles", items:items.length }; }
   console.log("[NEWS] artigo selecionado", JSON.stringify({source:item.source,url:item.link,title:item.title}));
   let pageText = "";
+  let imageUrl = item.image || "";
   try {
     const r = await fetch(item.link, { headers: { "User-Agent": "OSeuRadarBot/1.0" } });
-    if (r.ok) pageText = (await r.text()).replace(/<(script|style|nav|footer)[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").slice(0, 14000);
+    if (r.ok) {
+      const html = await r.text();
+      if (!imageUrl) {
+        const metaTags = [...html.matchAll(/<meta\b[^>]*>/gi)].map(x => x[0]);
+        for (const tag of metaTags) {
+          if (/(?:property|name)=["'](?:og:image|twitter:image)["']/i.test(tag)) {
+            const match = tag.match(/\bcontent=["']([^"']+)["']/i);
+            if (match) { try { imageUrl = new URL(match[1], item.link).href; } catch (_) {} }
+            if (imageUrl) break;
+          }
+        }
+      }
+      pageText = html.replace(/<(script|style|nav|footer)[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").slice(0, 14000);
+    }
   } catch (e) { console.warn("Falha ao ler matéria original", String(e)); }
-  const prompt = "Você é editor de um veículo jornalístico brasileiro. Produza uma reportagem original em português brasileiro com aproximadamente 800 palavras (faixa desejada: 750 a 850), usando subtítulos <h2> e parágrafos <p>. Desenvolva o assunto com profundidade, sem repetir ideias nem alongar artificialmente. Explique o que aconteceu, o contexto, como a tecnologia ou decisão funciona, impactos concretos, limitações, pontos ainda incertos e o que o leitor brasileiro precisa entender. Acrescente análise e síntese próprias somente quando sustentadas pelas informações fornecidas; diferencie claramente fatos, declarações e análise. Use atribuição clara para dados e declarações e preserve nomes, datas e números. Não invente fontes, citações, estatísticas, testes, especialistas, consequências ou detalhes ausentes. Se o material não sustentar uma reportagem responsável nessa extensão, informe isso em vez de preencher lacunas. Não copie nem faça tradução literal da fonte. Evite introduções genéricas, conclusões repetitivas e adjetivação promocional. Retorne JSON válido com title, excerpt e body (HTML simples).";
+  if (!/^https?:\/\//i.test(imageUrl)) imageUrl = "";
+  const prompt = "Você é editor de um veículo jornalístico brasileiro. Produza uma reportagem original em português brasileiro com aproximadamente 800 palavras (faixa desejada: 750 a 850), usando Markdown simples: linhas iniciadas por "# " devem representar subtítulos HTML <h2>, "## " devem representar <h3> e "### " devem representar <h4>. Escreva parágrafos como texto normal, separados por uma linha em branco; não escreva tags HTML (<h2>, <p> etc.) nem mostre os caracteres de marcação como texto no conteúdo final. Desenvolva o assunto com profundidade, sem repetir ideias nem alongar artificialmente. Explique o que aconteceu, o contexto, como a tecnologia ou decisão funciona, impactos concretos, limitações, pontos ainda incertos e o que o leitor brasileiro precisa entender. Acrescente análise e síntese próprias somente quando sustentadas pelas informações fornecidas; diferencie claramente fatos, declarações e análise. Use atribuição clara para dados e declarações e preserve nomes, datas e números. Não invente fontes, citações, estatísticas, testes, especialistas, consequências ou detalhes ausentes. Se o material não sustentar uma reportagem responsável nessa extensão, informe isso em vez de preencher lacunas. Não copie nem faça tradução literal da fonte. Evite introduções genéricas, conclusões repetitivas e adjetivação promocional. Retorne JSON válido com title, excerpt e body (HTML simples).";
   const ai = await fetch(env.AI_API_URL || "https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
@@ -64,7 +80,7 @@ export async function runNewsGeneration(env) {
   if (wordCount > 1050) console.warn("[NEWS] reportagem acima da faixa editorial", JSON.stringify({wordCount}));
   console.log("[NEWS] extensão editorial validada", JSON.stringify({wordCount}));
   const status = String(env.AUTO_PUBLISH || "false").toLowerCase() === "true" ? "published" : "pending_review";
-  const saved = await env.DB.prepare("INSERT INTO articles (category,title,excerpt,body,source_name,source_url,status,created_at,published_at,title_pt,excerpt_pt,body_pt,image_url,video_url) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?,NULL,NULL)").bind("Inteligência Artificial",article.title,article.excerpt,article.body,item.source,item.link,status,article.title,article.excerpt,article.body).run();
+  const saved = await env.DB.prepare("INSERT INTO articles (category,title,excerpt,body,source_name,source_url,status,created_at,published_at,title_pt,excerpt_pt,body_pt,image_url,video_url) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?,?,NULL)").bind("Inteligência Artificial",article.title,article.excerpt,article.body,item.source,item.link,status,article.title,article.excerpt,article.body,imageUrl || null).run();
   const result = { ok: true, id: saved.meta.last_row_id, title: article.title, status: status };
   console.log("[NEWS] notícia gravada no D1", JSON.stringify(result));
   return result;
