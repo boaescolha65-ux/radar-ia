@@ -47,6 +47,55 @@ async function rateLimit(env, ip) {
   return true;
 }
 
+
+function xmlEscape(value) {
+  return String(value ?? "").replace(/[<>&'"\`]/g, ch => ({
+    "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;", "`": "&apos;"
+  }[ch]));
+}
+function slugifyTitle(value) {
+  return String(value || "noticia")
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90)
+    .replace(/-+$/g, "") || "noticia";
+}
+async function handleRobots() {
+  return new Response(
+    "User-agent: *\\nAllow: /\\nDisallow: /admin\\n\\nSitemap: https://oseuradar.com.br/sitemap.xml\\n",
+    { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } }
+  );
+}
+async function handleSitemap(env) {
+  if (!env.DB) return new Response("D1 binding DB não configurado.", { status: 503 });
+  try {
+    const result = await env.DB.prepare(
+      "SELECT id, title, published_at FROM articles WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT 5000"
+    ).all();
+    const urls = (result.results || []).map(article => {
+      const loc = "https://oseuradar.com.br/noticia/" +
+        slugifyTitle(article.title) + "-" + encodeURIComponent(article.id);
+      const lastmod = article.published_at
+        ? "<lastmod>" + xmlEscape(new Date(article.published_at).toISOString()) + "</lastmod>"
+        : "";
+      return "<url><loc>" + xmlEscape(loc) + "</loc>" + lastmod + "</url>";
+    }).join("");
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+      '<url><loc>https://oseuradar.com.br/</loc></url>' + urls + '</urlset>';
+    return new Response(xml, {
+      status: 200,
+      headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=1800" }
+    });
+  } catch (error) {
+    console.error("Sitemap generation failed:", error);
+    return new Response("Falha ao gerar sitemap.", { status: 500 });
+  }
+}
+
 async function handleArticles(request, env, headers) {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405, headers);
@@ -173,6 +222,8 @@ export default {
       return json({ error: "Origin not allowed" }, 403, headers);
     }
 
+    if (url.pathname === "/robots.txt" && request.method === "GET") return handleRobots();
+    if (url.pathname === "/sitemap.xml" && request.method === "GET") return handleSitemap(env);
     if (url.pathname === "/api/articles.json") {
       return handleArticles(request, env, headers);
     }
