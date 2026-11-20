@@ -215,7 +215,7 @@ async function handleAdmin(request, env, headers, pathname) {
         return json({ error: "Preencha os campos obrigatórios. A reportagem precisa ter pelo menos 500 caracteres e a fonte deve ser uma URL HTTP(S)." }, 400, headers);
       }
       const result = await env.DB.prepare(
-        "INSERT INTO articles (category, title, excerpt, body, source_name, source_url, status, created_at, title_pt, excerpt_pt, body_pt, image_url, video_url) VALUES (?, ?, ?, ?, ?, ?, 'pending_review', CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)"
+        "INSERT INTO articles (category, title, excerpt, body, source_name, source_url, status, created_at, published_at, title_pt, excerpt_pt, body_pt, image_url, video_url) VALUES (?, ?, ?, ?, ?, ?, 'pending_review', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)"
       ).bind(category, title, excerpt, articleBody, sourceName, sourceUrl, title, excerpt, articleBody, imageUrl || null, videoUrl || null).run();
       return json({ ok: true, id: result.meta?.last_row_id, status: "pending_review" }, 201, headers);
     }
