@@ -1843,8 +1843,10 @@ body.about-view #contato {
     const REFRESH_INTERVAL = 15 * 60 * 1000;
     const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1000&q=80";
 
+    const initialArticle = window.__INITIAL_ARTICLE__ || null;
+
     const state = {
-      articles: [],
+      articles: initialArticle ? [initialArticle] : [],
       filter: "Todos",
       search: "",
       loading: false,
