@@ -1,11 +1,14 @@
 export async function runNewsGeneration(env) {
+  console.log("[NEWS] início da geração", new Date().toISOString());
   if (!env.DB) throw new Error("D1 DB não configurado");
   const key = env.AI_API_KEY || env.GROQ_API_KEY || env.GROQ_API_TOKEN;
   if (!key) throw new Error("Configure AI_API_KEY ou GROQ_API_KEY como Secret no Worker");
   const daily = await env.DB.prepare("SELECT COUNT(*) AS total FROM articles WHERE created_at >= datetime('now','start of day')").first();
-  if (Number(daily.total || 0) >= 6) return { skipped: "daily_limit" };
+  if (Number(daily.total || 0) >= 6) { console.log("[NEWS] limite diário atingido", JSON.stringify({total:Number(daily.total||0)})); return { skipped: "daily_limit", total:Number(daily.total||0) }; }
+  console.log("[NEWS] limite diário", JSON.stringify({total:Number(daily.total||0)}));
   const feeds = String(env.RSS_FEEDS || "").split(/\r?\n|;/).map(x => x.trim()).filter(x => /^https?:\/\//i.test(x)).slice(0, 12);
   if (!feeds.length) throw new Error("RSS_FEEDS não configurado");
+  console.log("[NEWS] feeds configurados", JSON.stringify({count:feeds.length}));
   const all = await Promise.allSettled(feeds.map(async url => {
     const r = await fetch(url);
     if (!r.ok) throw new Error("Feed HTTP " + r.status);
@@ -22,14 +25,20 @@ export async function runNewsGeneration(env) {
     }).filter(x => x.title && x.link && /^https?:\/\//i.test(x.link));
   }));
   const items = [];
-  for (const r of all) if (r.status === "fulfilled") items.push(...r.value);
+  for (let i=0;i<all.length;i++) {
+    const r=all[i];
+    if (r.status === "fulfilled") { items.push(...r.value); console.log("[NEWS] feed consultado", JSON.stringify({index:i+1,items:r.value.length})); }
+    else console.error("[NEWS] falha no feed", JSON.stringify({index:i+1,error:String(r.reason)}));
+  }
+  console.log("[NEWS] total de itens RSS", items.length);
   items.sort((a,b) => (Date.parse(b.date)||0) - (Date.parse(a.date)||0));
   let item = null;
   for (const x of items) {
     const old = await env.DB.prepare("SELECT id FROM articles WHERE source_url = ? LIMIT 1").bind(x.link).first();
     if (!old) { item = x; break; }
   }
-  if (!item) return { skipped: "no_new_articles" };
+  if (!item) { console.log("[NEWS] nenhum artigo novo elegível", JSON.stringify({items:items.length})); return { skipped: "no_new_articles", items:items.length }; }
+  console.log("[NEWS] artigo selecionado", JSON.stringify({source:item.source,url:item.link,title:item.title}));
   let pageText = "";
   try {
     const r = await fetch(item.link, { headers: { "User-Agent": "OSeuRadarBot/1.0" } });
@@ -44,6 +53,7 @@ export async function runNewsGeneration(env) {
       { role: "user", content: "Fonte: " + item.source + "\nURL: " + item.link + "\nTítulo: " + item.title + "\nResumo RSS: " + item.excerpt + "\nTexto consultado: " + pageText }
     ] })
   });
+  console.log("[NEWS] resposta Groq recebida", JSON.stringify({status:ai.status,ok:ai.ok}));
   const raw = await ai.text();
   if (!ai.ok) throw new Error("Groq HTTP " + ai.status + ": " + raw.slice(0, 300));
   const data = JSON.parse(raw);
@@ -53,6 +63,6 @@ export async function runNewsGeneration(env) {
   const status = String(env.AUTO_PUBLISH || "false").toLowerCase() === "true" ? "published" : "pending_review";
   const saved = await env.DB.prepare("INSERT INTO articles (category,title,excerpt,body,source_name,source_url,status,created_at,published_at,title_pt,excerpt_pt,body_pt,image_url,video_url) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CASE WHEN ?='published' THEN CURRENT_TIMESTAMP ELSE NULL END,?,?,?,NULL,NULL)").bind("Inteligência Artificial",article.title,article.excerpt,article.body,item.source,item.link,status,status,article.title,article.excerpt,article.body).run();
   const result = { ok: true, id: saved.meta.last_row_id, title: article.title, status: status };
-  console.log("Notícia gerada", JSON.stringify(result));
+  console.log("[NEWS] notícia gravada no D1", JSON.stringify(result));
   return result;
 }
