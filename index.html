@@ -2657,14 +2657,19 @@ function setupArticleAudio(article) {
         if (!blob.size) throw new Error("O serviço retornou um trecho vazio.");
         const url = URL.createObjectURL(blob);
         const metadataAudio = new Audio(url);
-        await new Promise((resolve, reject) => {
-          const timer = window.setTimeout(() => reject(new Error("Tempo excedido ao carregar áudio.")), 15000);
-          metadataAudio.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
-          metadataAudio.addEventListener("error", () => { clearTimeout(timer); reject(new Error("Áudio MP3 inválido.")); }, { once: true });
+        const estimatedDuration = Math.max(1, chunks[i].split(/\\s+/).filter(Boolean).length / 150 * 60);
+        await new Promise((resolve) => {
+          const finish = () => { clearTimeout(timer); resolve(); };
+          const timer = window.setTimeout(finish, 3000);
+          metadataAudio.addEventListener("loadedmetadata", finish, { once: true });
+          metadataAudio.addEventListener("error", finish, { once: true });
           metadataAudio.load();
         });
-        const duration = metadataAudio.duration;
-        if (!Number.isFinite(duration) || duration <= 0) throw new Error("Duração do áudio inválida.");
+        // Alguns navegadores não informam a duração do MP3 Blob, embora o áudio seja válido.
+        // Nesse caso, mantém o trecho e usa uma estimativa em vez de interromper a geração.
+        const duration = Number.isFinite(metadataAudio.duration) && metadataAudio.duration > 0
+          ? metadataAudio.duration
+          : estimatedDuration;
         parts.push({ url, duration });
         totalDuration += duration;
         cumulative.push(totalDuration - duration);
