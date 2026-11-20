@@ -6,8 +6,11 @@ const bodyHtml = value => {
   if (!raw) return "<p>O conteúdo desta publicação não está disponível no momento.</p>";
   return raw.split(/\n{2,}/).map(block => {
     const lines = block.split("\n").map(x => x.trim()).filter(Boolean);
-    const heading = block.match(/^#{1,3}\s+(.+)$/);
-    if (heading) return "<h2>" + esc(heading[1]) + "</h2>";
+    const heading = block.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length + 1;
+      return "<h" + level + ">" + esc(heading[2]) + "</h" + level + ">";
+    }
     if (lines.length && lines.every(x => /^[-•*]\s+/.test(x))) return "<ul>" + lines.map(x => "<li>" + esc(x.replace(/^[-•*]\s+/,"")) + "</li>").join("") + "</ul>";
     return "<p>" + lines.map(esc).join("<br>") + "</p>";
   }).join("");
