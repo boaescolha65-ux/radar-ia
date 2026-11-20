@@ -5,10 +5,22 @@ from io import BytesIO
 
 import edge_tts
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="O Seu Radar — Edge TTS", docs_url=None, redoc_url=None)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://oseuradar.com.br",
+        "https://www.oseuradar.com.br",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 VOICE = os.getenv("EDGE_TTS_VOICE", "pt-BR-FranciscaNeural")
 API_KEY = os.getenv("EDGE_TTS_API_KEY", "")
@@ -71,7 +83,6 @@ async def synthesize(
     except HTTPException:
         raise
     except Exception as exc:
-        # Detalhes técnicos ficam apenas nos logs do servidor.
         print(f"Edge TTS synthesis error: {type(exc).__name__}: {exc}")
         raise HTTPException(
             status_code=502,
