@@ -1501,6 +1501,11 @@ body.about-view #contato {
 .audio-news-player .audio-speed { flex-shrink:0; padding:6px 10px; border:1px solid #d8e1e9; border-radius:999px; background:#fff; color:#243348; cursor:pointer; font-size:12px; font-weight:800; }
 .audio-news-player .audio-speed:hover { border-color:#087f72; color:#087f72; }
 .audio-news-player .audio-speed:focus-visible { outline:3px solid #5eead4; outline-offset:2px; }
+.audio-news-player .audio-volume-group { display:inline-flex; align-items:center; gap:7px; }
+.audio-news-player .audio-mute { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d8e1e9; border-radius:50%; background:#fff; color:#243348; cursor:pointer; font-size:14px; }
+.audio-news-player .audio-mute:hover { border-color:#087f72; color:#087f72; }
+.audio-news-player .audio-volume { width:76px; accent-color:#087f72; cursor:pointer; }
+.audio-news-player .audio-mute:focus-visible, .audio-news-player .audio-volume:focus-visible { outline:3px solid #5eead4; outline-offset:2px; }
 .audio-news-player .audio-label { display:block; color:#202b3c; font-size:14px; font-weight:800; }
 .audio-news-player .audio-status { display:block; margin-top:2px; color:#748094; font-size:12px; }
 .audio-news-player .audio-progress-wrap {
@@ -2497,7 +2502,11 @@ function createArticleAudioPlayer(article) {
       <div class="audio-info">
         <div class="audio-info-row">
           <span class="audio-label">Ouça esta notícia</span>
-          <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade" title="Alterar velocidade">1×</button>
+          <div class="audio-volume-group">
+            <button type="button" class="audio-mute" id="audioMuteButton" aria-label="Silenciar áudio" title="Silenciar áudio">🔊</button>
+            <input type="range" class="audio-volume" id="audioVolume" min="0" max="1" step="0.05" value="0.8" aria-label="Volume da narração" title="Volume da narração">
+            <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade" title="Alterar velocidade">1×</button>
+          </div>
         </div>
         <span class="audio-status" id="audioStatus" role="status">Narração IA em português · duração estimada ${formatAudioTime(estimatedSeconds)}</span>
       </div>
@@ -2517,6 +2526,8 @@ function createArticleAudioPlayer(article) {
 function setupArticleAudio(article) {
   const button = document.getElementById("audioToggleButton");
   const speedButton = document.getElementById("audioSpeedButton");
+  const muteButton = document.getElementById("audioMuteButton");
+  const volumeSlider = document.getElementById("audioVolume");
   const status = document.getElementById("audioStatus");
   const elapsedLabel = document.getElementById("audioElapsed");
   const durationLabel = document.getElementById("audioDuration");
@@ -2547,6 +2558,8 @@ function setupArticleAudio(article) {
   const rates = [1, 1.25, 1.5, 1.75, 2];
   let rateIndex = 0;
   let rate = rates[rateIndex];
+  let volumeLevel = 0.8;
+  let audioMuted = false;
   let audio = null;
   let parts = [];
   let cumulative = [];
@@ -2601,6 +2614,7 @@ function setupArticleAudio(article) {
     audio = new Audio(parts[currentPart].url);
     audio.preload = "auto";
     audio.playbackRate = rate;
+    audio.volume = audioMuted ? 0 : volumeLevel;
     audio.currentTime = offset;
     audio.addEventListener("timeupdate", updateProgress);
     audio.addEventListener("ended", () => {
@@ -2729,6 +2743,26 @@ function setupArticleAudio(article) {
       return;
     }
     await generateAudio();
+  });
+  volumeSlider?.addEventListener("input", () => {
+    volumeLevel = Math.max(0, Math.min(1, Number(volumeSlider.value)));
+    audioMuted = volumeLevel === 0;
+    if (audio) audio.volume = audioMuted ? 0 : volumeLevel;
+    if (muteButton) {
+      muteButton.textContent = audioMuted ? "🔇" : "🔊";
+      muteButton.setAttribute("aria-label", audioMuted ? "Ativar áudio" : "Silenciar áudio");
+      muteButton.title = audioMuted ? "Ativar áudio" : "Silenciar áudio";
+    }
+  });
+  muteButton?.addEventListener("click", () => {
+    audioMuted = !audioMuted;
+    if (audio) audio.volume = audioMuted ? 0 : volumeLevel;
+    if (volumeSlider) volumeSlider.value = audioMuted ? "0" : String(volumeLevel || 0.8);
+    if (!audioMuted && volumeLevel === 0) volumeLevel = 0.8;
+    if (volumeSlider && !audioMuted) volumeSlider.value = String(volumeLevel);
+    muteButton.textContent = audioMuted ? "🔇" : "🔊";
+    muteButton.setAttribute("aria-label", audioMuted ? "Ativar áudio" : "Silenciar áudio");
+    muteButton.title = audioMuted ? "Ativar áudio" : "Silenciar áudio";
   });
   speedButton?.addEventListener("click", () => {
     rateIndex = (rateIndex + 1) % rates.length;
