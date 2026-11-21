@@ -4,7 +4,7 @@ export async function runNewsGeneration(env) {
   const key = env.AI_API_KEY || env.GROQ_API_KEY || env.GROQ_API_TOKEN;
   if (!key) throw new Error("Configure AI_API_KEY ou GROQ_API_KEY como Secret no Worker");
   const daily = await env.DB.prepare("SELECT COUNT(*) AS total FROM articles WHERE created_at >= datetime('now','start of day')").first();
-  if (Number(daily.total || 0) >= 10) { console.log("[NEWS] limite diário atingido", JSON.stringify({total:Number(daily.total||0)})); return { skipped: "daily_limit", total:Number(daily.total||0) }; }
+  if (Number(daily.total || 0) >= 50) { console.log("[NEWS] limite diário de 50 notícias atingido", JSON.stringify({total:Number(daily.total||0)})); return { skipped: "daily_limit", total:Number(daily.total||0) }; }
   console.log("[NEWS] limite diário", JSON.stringify({total:Number(daily.total||0)}));
   const feeds = String(env.RSS_FEEDS || "").split(/\r?\n|;/).map(x => x.trim()).filter(x => /^https?:\/\//i.test(x)).slice(0, 12);
   if (!feeds.length) throw new Error("RSS_FEEDS não configurado");
