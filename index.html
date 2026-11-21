@@ -2656,25 +2656,21 @@ function setupArticleAudio(article) {
     button.textContent = "×";
     button.setAttribute("aria-label", "Cancelar geração de áudio");
     generationController = new AbortController();
-    setStatus("Gerando narração · 0/" + chunks.length + " trechos…");
+    setStatus("Preparando o motor neural Piper…");
     try {
       for (let i = 0; i < chunks.length; i++) {
-        const response = await fetch("https://radar-ia-api.boaescolha65.workers.dev/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: chunks[i] }),
-          signal: generationController.signal
+        const blob = await window.PiperLocalTTS.synthesize(chunks[i], {
+          signal: generationController.signal,
+          onProgress: message => setStatus("Preparando narração · " + message)
         });
-        if (!response.ok) {
-          let errorMessage = "Falha na geração de áudio (HTTP " + response.status + ").";
-          try { const data = await response.json(); if (data?.error) errorMessage = data.error; } catch (_) {}
-          throw new Error(errorMessage);
+        if (generationController.signal.aborted) {
+          throw new DOMException("Geração cancelada.", "AbortError");
         }
-        const blob = await response.blob();
-        if (!blob.size) throw new Error("O serviço retornou um trecho vazio.");
+        if (!blob || !blob.size) throw new Error("O Piper retornou um trecho de áudio vazio.");
+
         const url = URL.createObjectURL(blob);
         const metadataAudio = new Audio(url);
-        const estimatedDuration = Math.max(1, chunks[i].split(/\s+/).filter(Boolean).length / 150 * 60);
+        const estimatedDuration = Math.max(1, chunks[i].split(/\\s+/).filter(Boolean).length / 150 * 60);
         await new Promise((resolve) => {
           const finish = () => { clearTimeout(timer); resolve(); };
           const timer = window.setTimeout(finish, 3000);
@@ -2682,8 +2678,6 @@ function setupArticleAudio(article) {
           metadataAudio.addEventListener("error", finish, { once: true });
           metadataAudio.load();
         });
-        // Alguns navegadores não informam a duração do MP3 Blob, embora o áudio seja válido.
-        // Nesse caso, mantém o trecho e usa uma estimativa em vez de interromper a geração.
         const duration = Number.isFinite(metadataAudio.duration) && metadataAudio.duration > 0
           ? metadataAudio.duration
           : estimatedDuration;
@@ -2693,6 +2687,7 @@ function setupArticleAudio(article) {
         metadataAudio.src = "";
         setStatus("Gerando narração · " + (i + 1) + "/" + chunks.length + " trechos…");
       }
+
       seek.disabled = false;
       if (backButton) backButton.disabled = false;
       if (forwardButton) forwardButton.disabled = false;
