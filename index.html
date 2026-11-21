@@ -2534,7 +2534,7 @@ function setupArticleAudio(article) {
   const rates=[1,1.25,1.5,1.75,2];let rateIndex=0,rate=1,volumeLevel=.8,audioMuted=false,currentChunk=0,charOffset=0,playing=false,paused=false,done=false,disposed=false,timer=null,nextTimer=null;
   const totalChars=Math.max(1,text.length),estimatedTotal=Math.max(1,text.split(/\s+/).length/150*60),starts=[];let cursor=0;chunks.forEach((chunk,i)=>{starts.push(cursor);cursor+=chunk.length+(i<chunks.length-1?2:0);});
   let elapsedSeconds=0;
-  const currentChar=()=>Math.min(totalChars,(starts[currentChunk]||0)+charOffset),timeLabel=n=>formatAudioTime(n),estimated=pos=>pos/totalChars*estimatedTotal,durationAtRate=()=>estimatedTotal/rate;
+  const currentChar=()=>Math.min(totalChars,Math.max(0,Math.round(elapsedSeconds/Math.max(1,durationAtRate())*totalChars))),timeLabel=n=>formatAudioTime(n),estimated=pos=>pos/totalChars*estimatedTotal,durationAtRate=()=>estimatedTotal/rate;
   const setButton=state=>{button.textContent=state?"Ⅱ":"▶";button.setAttribute("aria-label",state?"Pausar notícia":"Reproduzir notícia");button.title=state?"Pausar notícia":"Reproduzir notícia";};
   const progress=()=>{const duration=durationAtRate(),ratio=Math.max(0,Math.min(1,elapsedSeconds/Math.max(1,duration)));elapsedLabel.textContent=timeLabel(elapsedSeconds);seek.value=String(Math.round(ratio*1000));seek.style.setProperty("--seek-progress",ratio*100+"%");};
   const cleanup=()=>{disposed=true;window.speechSynthesis.cancel();if(timer)clearInterval(timer);if(nextTimer)clearTimeout(nextTimer);timer=null;nextTimer=null;};window.articleTtsCleanup=cleanup;
