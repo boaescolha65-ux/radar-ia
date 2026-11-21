@@ -1498,7 +1498,7 @@ body.about-view #contato {
 .audio-news-player .audio-toggle:disabled { opacity:.55; cursor:not-allowed; transform:none; }
 .audio-news-player .audio-info { min-width:0; }
 .audio-news-player .audio-info-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.audio-news-player .audio-speed { flex-shrink:0; padding:6px 10px; border:1px solid #d8e1e9; border-radius:999px; background:#fff; color:#243348; cursor:pointer; font-size:12px; font-weight:800; min-width:76px; }
+.audio-news-player .audio-speed { flex-shrink:0; padding:6px 10px; border:1px solid #d8e1e9; border-radius:999px; background:#fff; color:#243348; cursor:pointer; font-size:12px; font-weight:800;  }
 .audio-news-player .audio-speed:hover { border-color:#087f72; color:#087f72; }
 .audio-news-player .audio-speed:focus-visible { outline:3px solid #5eead4; outline-offset:2px; }
 .audio-news-player .audio-volume-group { display:inline-flex; align-items:center; gap:7px; }
@@ -2505,7 +2505,7 @@ function createArticleAudioPlayer(article) {
           <div class="audio-volume-group">
             <button type="button" class="audio-mute" id="audioMuteButton" aria-label="Silenciar áudio" title="Silenciar áudio">🔊</button>
             <input type="range" class="audio-volume" id="audioVolume" min="0" max="1" step="0.05" value="0.8" aria-label="Volume da narração" title="Volume da narração">
-            <select class="audio-speed" id="audioSpeedButton" aria-label="Velocidade da narração" title="Velocidade da narração"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="1.75">1,75×</option><option value="2">2×</option></select>
+            <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade" title="Alterar velocidade">1×</button>
           </div>
         </div>
         <span class="audio-status" id="audioStatus" role="status">Narração do navegador · duração estimada ${formatAudioTime(estimatedSeconds)}</span>
@@ -2528,7 +2528,7 @@ function setupArticleAudio(article) {
   if(!button||!status||!elapsedLabel||!durationLabel||!seek||!("speechSynthesis" in window)){if(status)status.textContent="Narração nativa não disponível neste navegador.";if(button)button.disabled=true;return;}
   window.articleTtsCleanup?.();
   const cleanText=value=>{const holder=document.createElement("div");holder.innerHTML=String(value||"");return(holder.textContent||holder.innerText||"").replace(/(^|\n)\s{0,3}#{1,6}\s+/g,"$1").replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();};
-  const text=[getTitle(article),getExcerpt(article),cleanText(getBody(article))].map(cleanText).filter(Boolean).join("\n\n").trim();
+  const renderedBody=document.querySelector(".article-detail-content")?.innerText||getBody(article);const text=[getTitle(article),cleanText(renderedBody)].map(cleanText).filter(Boolean).join("\n\n").trim();
   const chunks=[];let paragraphList=text.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
   paragraphList.forEach(paragraph=>{const sentences=paragraph.match(/[^.!?]+[.!?]+(?:[”’\"')\\]]*|$)|[^.!?]+$/g)||[paragraph];let pending="";sentences.forEach(sentence=>{const part=sentence.trim();if(!part)return;if(pending&&pending.length+part.length+1>260){chunks.push(pending);pending=part;}else pending=pending?pending+" "+part:part;});if(pending)chunks.push(pending);});
   const rates=[1,1.25,1.5,1.75,2];let rateIndex=0,rate=1,volumeLevel=.8,audioMuted=false,currentChunk=0,charOffset=0,playing=false,paused=false,done=false,disposed=false,timer=null,nextTimer=null;
@@ -2547,7 +2547,7 @@ function setupArticleAudio(article) {
   const refreshAudio=()=>{if(playing){const position=currentChar();startAt(position,true);}};
   volumeSlider?.addEventListener("input",()=>{volumeLevel=Math.max(0,Math.min(1,Number(volumeSlider.value)));audioMuted=volumeLevel===0;if(muteButton){muteButton.textContent=audioMuted?"🔇":"🔊";muteButton.setAttribute("aria-label",audioMuted?"Ativar áudio":"Silenciar áudio");muteButton.title=muteButton.getAttribute("aria-label");}refreshAudio();});
   muteButton?.addEventListener("click",()=>{audioMuted=!audioMuted;if(!audioMuted&&volumeLevel===0)volumeLevel=.8;if(volumeSlider)volumeSlider.value=audioMuted?"0":String(volumeLevel);if(muteButton){muteButton.textContent=audioMuted?"🔇":"🔊";muteButton.setAttribute("aria-label",audioMuted?"Ativar áudio":"Silenciar áudio");muteButton.title=muteButton.getAttribute("aria-label");}refreshAudio();});
-  speedSelect?.addEventListener("change",()=>{const selected=Number(speedSelect.value);if(!Number.isFinite(selected)||selected<=0)return;rate=selected;rateIndex=rates.indexOf(rate);setStatus((playing?"Reproduzindo":paused?"Pausado":"Pronto")+" · velocidade "+rate.toString().replace(".",",")+"×"+(playing?" (aplica no próximo trecho)":""));});
+  speedSelect?.addEventListener("click",()=>{rateIndex=(rateIndex+1)%rates.length;rate=rates[rateIndex];speedSelect.textContent=rate.toString().replace(".",",")+"×";speedSelect.setAttribute("aria-label","Velocidade "+rate.toString().replace(".",",")+" vezes");setStatus((playing?"Reproduzindo":paused?"Pausado":"Pronto")+" · velocidade "+rate.toString().replace(".",",")+"×"+(playing?" (aplica no próximo trecho)":""));});
   seek.addEventListener("input",()=>startAt(totalChars*Number(seek.value)/1000,playing));
   backButton?.addEventListener("click",()=>startAt(Math.max(0,currentChar()-totalChars*10/estimatedTotal),playing));
   forwardButton?.addEventListener("click",()=>startAt(Math.min(totalChars,currentChar()+totalChars*10/estimatedTotal),playing));
