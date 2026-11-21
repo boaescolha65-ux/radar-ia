@@ -1,7 +1,7 @@
 /**
  * O Seu Radar — API principal
  * Notícias públicas, painel administrativo e sitemap.
- * Áudio: Edge TTS hospedado no Render.
+ * Áudio das notícias: síntese de voz nativa do navegador (Web Speech API).
  *
  * Cloudflare bindings:
  *   DB -> radar-ia-db (D1)
