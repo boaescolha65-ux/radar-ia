@@ -116,7 +116,7 @@ async function handleTTS(request, env, headers) {
             "Accept": "audio/mpeg"
           },
           body: JSON.stringify({ text }),
-          signal: AbortSignal.timeout(90000)
+          signal: AbortSignal.timeout(35000)
         });
         if (response.ok || response.status === 401 || response.status === 403 || response.status === 429) break;
         if (![408, 500, 502, 503, 504].includes(response.status)) break;
