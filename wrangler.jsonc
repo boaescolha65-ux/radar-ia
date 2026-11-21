@@ -3,6 +3,9 @@
   "name": "radar-ia-api",
   "main": "google-tts-worker.js",
   "compatibility_date": "2026-11-19",
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   // Preserve dashboard-managed variables and secrets during Wrangler deployments.
   // EDGE_TTS_API_KEY must remain a Secret in Cloudflare, not a plaintext vars entry.
   "keep_vars": true,
