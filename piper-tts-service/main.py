@@ -1,19 +1,25 @@
 import asyncio
 import hmac
+import json
 import os
+import resource
+import time
 import wave
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
 
+import onnxruntime as ort
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from piper import PiperVoice
+from piper.config import PiperConfig
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = Path(os.getenv("PIPER_MODEL_PATH", str(BASE_DIR / "voices" / "pt_BR-faber-medium.onnx")))
+CONFIG_PATH = Path(str(MODEL_PATH) + ".json")
 VOICE_NAME = "pt_BR-faber-medium"
 API_KEY = os.getenv("PIPER_API_KEY", "")
 MAX_TEXT_CHARS = 1400
@@ -21,13 +27,45 @@ _generation_limit = asyncio.Semaphore(1)
 _voice: PiperVoice | None = None
 
 
+def memory_peak_mb() -> int:
+    # Render runs Linux; ru_maxrss is reported in KiB.
+    return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _voice
     if not MODEL_PATH.is_file():
         raise RuntimeError(f"Modelo Piper não encontrado: {MODEL_PATH}")
-    _voice = PiperVoice.load(str(MODEL_PATH))
-    print(f"Piper pronto: {VOICE_NAME}")
+    if not CONFIG_PATH.is_file():
+        raise RuntimeError(f"Configuração Piper não encontrada: {CONFIG_PATH}")
+
+    # Render Free has a tight RAM/CPU budget. Limit ONNX threads and disable
+    # memory arenas/patterns to avoid oversized thread pools and retained buffers.
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 1
+    options.inter_op_num_threads = 1
+    options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    options.enable_cpu_mem_arena = False
+    options.enable_mem_pattern = False
+    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+    options.log_severity_level = 3
+
+    with CONFIG_PATH.open("r", encoding="utf-8") as config_file:
+        config = PiperConfig.from_dict(json.load(config_file))
+
+    started = time.monotonic()
+    session = ort.InferenceSession(
+        str(MODEL_PATH),
+        sess_options=options,
+        providers=["CPUExecutionProvider"],
+    )
+    _voice = PiperVoice(config=config, session=session)
+    print(
+        f"Piper pronto: {VOICE_NAME}; "
+        f"load_seconds={time.monotonic() - started:.1f}; "
+        f"peak_rss_mb={memory_peak_mb()}"
+    )
     yield
     _voice = None
 
@@ -52,6 +90,11 @@ class TTSRequest(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
 
 
+@app.get("/")
+async def root():
+    return {"service": "piper-tts", "status": "ok" if _voice is not None else "starting"}
+
+
 @app.get("/health")
 async def health():
     return {
@@ -59,6 +102,7 @@ async def health():
         "service": "piper-tts",
         "voice": VOICE_NAME,
         "model_loaded": _voice is not None,
+        "peak_rss_mb": memory_peak_mb(),
     }
 
 
@@ -88,6 +132,7 @@ async def synthesize(
     if len(text) > MAX_TEXT_CHARS:
         raise HTTPException(status_code=413, detail="Trecho excede 1.400 caracteres.")
 
+    started = time.monotonic()
     try:
         async with _generation_limit:
             audio = await asyncio.to_thread(_synthesize_wav, text)
@@ -95,6 +140,11 @@ async def synthesize(
         if not audio:
             raise RuntimeError("O Piper não retornou áudio.")
 
+        elapsed = time.monotonic() - started
+        print(
+            f"Piper TTS OK: chars={len(text)}; audio_bytes={len(audio)}; "
+            f"seconds={elapsed:.1f}; peak_rss_mb={memory_peak_mb()}"
+        )
         return Response(
             content=audio,
             media_type="audio/wav",
@@ -106,7 +156,10 @@ async def synthesize(
     except HTTPException:
         raise
     except Exception as exc:
-        print(f"Piper TTS synthesis error: {type(exc).__name__}: {exc}")
+        print(
+            f"Piper TTS synthesis error: {type(exc).__name__}: {exc}; "
+            f"peak_rss_mb={memory_peak_mb()}"
+        )
         raise HTTPException(
             status_code=502,
             detail="Não foi possível gerar o áudio. Tente novamente.",
