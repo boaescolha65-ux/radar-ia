@@ -37,12 +37,25 @@ async function fetchModelAsset(url) {
   return response;
 }
 
+async function importRemoteScript(url) {
+  const response = await fetch(url, { mode: "cors" });
+  if (!response.ok) throw new Error("Não foi possível carregar uma dependência do Piper (HTTP " + response.status + ").");
+  const source = await response.text();
+  const objectUrl = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+  try {
+    importScripts(objectUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 async function initialize(id) {
   if (runtimePromise) return runtimePromise;
 
   runtimePromise = (async () => {
     progress(id, "Carregando o motor de voz…");
-    importScripts(ORT_BASE + "ort.wasm.min.js", PHONEMIZER_BASE + "piper_phonemize.js");
+    await importRemoteScript(ORT_BASE + "ort.wasm.min.js");
+    await importRemoteScript(PHONEMIZER_BASE + "piper_phonemize.js");
 
     if (typeof ort === "undefined" || typeof createPiperPhonemize !== "function") {
       throw new Error("Não foi possível carregar os componentes WebAssembly do Piper.");
