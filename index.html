@@ -2508,7 +2508,7 @@ function createArticleAudioPlayer(article) {
             <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade" title="Alterar velocidade">1×</button>
           </div>
         </div>
-        <span class="audio-status" id="audioStatus" role="status">Narração IA em português · duração estimada ${formatAudioTime(estimatedSeconds)}</span>
+        <span class="audio-status" id="audioStatus" role="status">Narração do navegador · duração estimada ${formatAudioTime(estimatedSeconds)}</span>
       </div>
       <div class="audio-progress-wrap" aria-label="Progresso da narração">
         <span id="audioElapsed">0:00</span>
@@ -2524,293 +2524,32 @@ function createArticleAudioPlayer(article) {
 }
 
 function setupArticleAudio(article) {
-  const button = document.getElementById("audioToggleButton");
-  const speedButton = document.getElementById("audioSpeedButton");
-  const muteButton = document.getElementById("audioMuteButton");
-  const volumeSlider = document.getElementById("audioVolume");
-  const status = document.getElementById("audioStatus");
-  const elapsedLabel = document.getElementById("audioElapsed");
-  const durationLabel = document.getElementById("audioDuration");
-  const seek = document.getElementById("audioSeek");
-  const backButton = document.getElementById("audioBackButton");
-  const forwardButton = document.getElementById("audioForwardButton");
-  if (!button || !status || !elapsedLabel || !durationLabel || !seek) return;
-
+  const button = document.getElementById("audioToggleButton"), speedButton = document.getElementById("audioSpeedButton"), muteButton = document.getElementById("audioMuteButton"), volumeSlider = document.getElementById("audioVolume"), status = document.getElementById("audioStatus"), elapsedLabel = document.getElementById("audioElapsed"), durationLabel = document.getElementById("audioDuration"), seek = document.getElementById("audioSeek"), backButton = document.getElementById("audioBackButton"), forwardButton = document.getElementById("audioForwardButton");
+  if (!button || !status || !elapsedLabel || !durationLabel || !seek || !("speechSynthesis" in window)) { if(status) status.textContent="Narração nativa não disponível neste navegador."; if(button) button.disabled=true; return; }
   window.articleTtsCleanup?.();
-  const cleanText = (value) => {
-    const holder = document.createElement("div");
-    holder.innerHTML = String(value || "");
-    return (holder.textContent || holder.innerText || "").replace(/(^|\n)\s{0,3}#{1,6}\s+/g, "$1").replace(/\s+/g, " ").trim();
-  };
-  const text = [getTitle(article), getExcerpt(article), cleanText(getBody(article))]
-    .map(cleanText).filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
-  const chunks = [];
-  let remaining = text;
-  while (remaining.length > 1400) {
-    let cut = remaining.lastIndexOf(". ", 1300);
-    if (cut < 650) cut = remaining.lastIndexOf(" ", 1300);
-    if (cut < 1) cut = 1300;
-    chunks.push(remaining.slice(0, cut).trim());
-    remaining = remaining.slice(cut).trim();
-  }
-  if (remaining) chunks.push(remaining);
-
-  const rates = [1, 1.25, 1.5, 1.75, 2];
-  let rateIndex = 0;
-  let rate = rates[rateIndex];
-  let volumeLevel = 0.8;
-  let audioMuted = false;
-  let audio = null;
-  let parts = [];
-  let cumulative = [];
-  let totalDuration = 0;
-  let currentPart = 0;
-  let generating = false;
-  let playing = false;
-  let paused = false;
-  let done = false;
-  let generationController = null;
-  let disposed = false;
-
-  const timeLabel = (seconds) => formatAudioTime(seconds);
-  const getPosition = () => {
-    if (!audio || !parts.length) return 0;
-    return (cumulative[currentPart] || 0) + (audio.currentTime || 0);
-  };
-  const setPlayButton = (isPlaying) => {
-    button.textContent = isPlaying ? "Ⅱ" : "▶";
-    button.setAttribute("aria-label", isPlaying ? "Pausar notícia" : "Reproduzir notícia");
-    button.title = isPlaying ? "Pausar notícia" : "Reproduzir notícia";
-  };
-  const updateProgress = () => {
-    const position = Math.min(totalDuration, getPosition());
-    elapsedLabel.textContent = timeLabel(position);
-    seek.value = totalDuration ? String(Math.round(position / totalDuration * 1000)) : "0";
-    seek.style.setProperty("--seek-progress", (totalDuration ? position / totalDuration * 100 : 0) + "%");
-  };
-  const cleanupUrls = () => {
-    parts.forEach(part => { if (part.url) URL.revokeObjectURL(part.url); });
-    parts = [];
-  };
-  const stopAudio = () => {
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-      audio = null;
-    }
-  };
-  const cleanup = () => {
-    disposed = true;
-    generationController?.abort();
-    stopAudio();
-    cleanupUrls();
-  };
-  window.articleTtsCleanup = cleanup;
-  const setStatus = (message) => { if (!disposed) status.textContent = message; };
-  const loadPartAudio = (index, offset = 0) => {
-    stopAudio();
-    currentPart = Math.max(0, Math.min(parts.length - 1, index));
-    audio = new Audio(parts[currentPart].url);
-    audio.preload = "auto";
-    audio.playbackRate = rate;
-    audio.volume = audioMuted ? 0 : volumeLevel;
-    audio.currentTime = offset;
-    audio.addEventListener("timeupdate", updateProgress);
-    audio.addEventListener("ended", () => {
-      if (!playing || disposed) return;
-      if (currentPart < parts.length - 1) {
-        loadPartAudio(currentPart + 1);
-        audio.play().catch(handlePlaybackError);
-      } else {
-        playing = false; paused = false; done = true;
-        setPlayButton(false);
-        setStatus("Narração concluída");
-        updateProgress();
-      }
-    });
-    audio.addEventListener("error", () => {
-      playing = false;
-      setPlayButton(false);
-      setStatus("Falha ao carregar um trecho de áudio. Tente novamente.");
-    });
-    updateProgress();
-  };
-  const handlePlaybackError = () => {
-    playing = false;
-    setPlayButton(false);
-    setStatus("O navegador bloqueou a reprodução. Clique em reproduzir novamente.");
-  };
-  const playFrom = async (index, offset = 0) => {
-    if (!parts.length || disposed) return;
-    loadPartAudio(index, offset);
-    playing = true; paused = false; done = false;
-    setPlayButton(true);
-    setStatus("Reproduzindo narração IA · " + rate.toString().replace(".", ",") + "×");
-    try { await audio.play(); } catch (error) { handlePlaybackError(); }
-  };
-  const generateAudio = async () => {
-    if (generating || disposed) return;
-    generating = true;
-    button.disabled = false;
-    button.textContent = "×";
-    button.setAttribute("aria-label", "Cancelar geração de áudio");
-    generationController = new AbortController();
-    setStatus("Gerando narração · 0/" + chunks.length + " trechos…");
-    try {
-      for (let i = 0; i < chunks.length; i++) {
-        const response = await fetch("https://radar-ia-api.boaescolha65.workers.dev/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: chunks[i] }),
-          signal: generationController.signal
-        });
-        if (!response.ok) {
-          let errorMessage = "Falha na geração de áudio (HTTP " + response.status + ").";
-          try { const data = await response.json(); if (data?.error) errorMessage = data.error; } catch (_) {}
-          throw new Error(errorMessage);
-        }
-        const blob = await response.blob();
-        if (!blob.size) throw new Error("O serviço retornou um trecho vazio.");
-        const url = URL.createObjectURL(blob);
-        const metadataAudio = new Audio(url);
-        const estimatedDuration = Math.max(1, chunks[i].split(/\s+/).filter(Boolean).length / 150 * 60);
-        await new Promise((resolve) => {
-          const finish = () => { clearTimeout(timer); resolve(); };
-          const timer = window.setTimeout(finish, 3000);
-          metadataAudio.addEventListener("loadedmetadata", finish, { once: true });
-          metadataAudio.addEventListener("error", finish, { once: true });
-          metadataAudio.load();
-        });
-        // Alguns navegadores não informam a duração do MP3 Blob, embora o áudio seja válido.
-        // Nesse caso, mantém o trecho e usa uma estimativa em vez de interromper a geração.
-        const duration = Number.isFinite(metadataAudio.duration) && metadataAudio.duration > 0
-          ? metadataAudio.duration
-          : estimatedDuration;
-        parts.push({ url, duration });
-        totalDuration += duration;
-        cumulative.push(totalDuration - duration);
-        metadataAudio.src = "";
-        setStatus("Gerando narração · " + (i + 1) + "/" + chunks.length + " trechos…");
-      }
-      seek.disabled = false;
-      if (backButton) backButton.disabled = false;
-      if (forwardButton) forwardButton.disabled = false;
-      durationLabel.textContent = timeLabel(totalDuration);
-      generating = false;
-      button.disabled = false;
-      button.textContent = "▶";
-      button.setAttribute("aria-label", "Reproduzir notícia");
-      await playFrom(0);
-    } catch (error) {
-      generating = false;
-      button.disabled = false;
-      button.textContent = "▶";
-      button.setAttribute("aria-label", "Reproduzir notícia");
-      if (error.name === "AbortError") setStatus("Geração de áudio cancelada.");
-      else setStatus(error.message || "Não foi possível gerar a narração.");
-      cleanupUrls();
-      totalDuration = 0;
-      cumulative = [];
-      seek.disabled = true;
-    }
-  };
-  button.addEventListener("click", async () => {
-    if (generating) {
-      generationController?.abort();
-      button.disabled = true;
-      setStatus("Cancelando geração…");
-      return;
-    }
-    if (playing && audio) {
-      audio.pause(); playing = false; paused = true;
-      setPlayButton(false); setStatus("Áudio pausado"); return;
-    }
-    if (paused && audio) {
-      playing = true; paused = false; setPlayButton(true);
-      setStatus("Retomando áudio · " + rate.toString().replace(".", ",") + "×");
-      try { await audio.play(); } catch (_) { handlePlaybackError(); }
-      return;
-    }
-    if (done && parts.length) {
-      await playFrom(0);
-      return;
-    }
-    if (parts.length) {
-      const position = getPosition();
-      let index = currentPart, offset = audio?.currentTime || 0;
-      await playFrom(index, offset);
-      return;
-    }
-    await generateAudio();
-  });
-  volumeSlider?.addEventListener("input", () => {
-    volumeLevel = Math.max(0, Math.min(1, Number(volumeSlider.value)));
-    audioMuted = volumeLevel === 0;
-    if (audio) audio.volume = audioMuted ? 0 : volumeLevel;
-    if (muteButton) {
-      muteButton.textContent = audioMuted ? "🔇" : "🔊";
-      muteButton.setAttribute("aria-label", audioMuted ? "Ativar áudio" : "Silenciar áudio");
-      muteButton.title = audioMuted ? "Ativar áudio" : "Silenciar áudio";
-    }
-  });
-  muteButton?.addEventListener("click", () => {
-    audioMuted = !audioMuted;
-    if (audio) audio.volume = audioMuted ? 0 : volumeLevel;
-    if (volumeSlider) volumeSlider.value = audioMuted ? "0" : String(volumeLevel || 0.8);
-    if (!audioMuted && volumeLevel === 0) volumeLevel = 0.8;
-    if (volumeSlider && !audioMuted) volumeSlider.value = String(volumeLevel);
-    muteButton.textContent = audioMuted ? "🔇" : "🔊";
-    muteButton.setAttribute("aria-label", audioMuted ? "Ativar áudio" : "Silenciar áudio");
-    muteButton.title = audioMuted ? "Ativar áudio" : "Silenciar áudio";
-  });
-  speedButton?.addEventListener("click", () => {
-    rateIndex = (rateIndex + 1) % rates.length;
-    rate = rates[rateIndex];
-    speedButton.textContent = rate.toString().replace(".", ",") + "×";
-    speedButton.setAttribute("aria-label", "Velocidade " + rate.toString().replace(".", ",") + " vezes");
-    if (audio) audio.playbackRate = rate;
-    setStatus((playing ? "Reproduzindo" : paused ? "Pausado" : "Pronto") + " · velocidade " + rate.toString().replace(".", ",") + "×");
-  });
-  seek.addEventListener("input", () => {
-    if (!parts.length || !totalDuration) return;
-    const target = totalDuration * (Number(seek.value) / 1000);
-    let index = parts.length - 1;
-    for (let i = 0; i < parts.length; i++) {
-      if (target < cumulative[i] + parts[i].duration || i === parts.length - 1) { index = i; break; }
-    }
-    const offset = Math.max(0, target - cumulative[index]);
-    const wasPlaying = playing;
-    const wasPaused = paused;
-    if (audio) audio.pause();
-    if (wasPlaying) {
-      playFrom(index, offset);
-    } else {
-      loadPartAudio(index, offset);
-      playing = false;
-      paused = wasPaused;
-      setPlayButton(false);
-      setStatus(wasPaused ? "Áudio pausado" : "Posição selecionada");
-      updateProgress();
-    }
-  });
-  backButton?.addEventListener("click", () => {
-    const target = Math.max(0, getPosition() - 10);
-    seek.value = totalDuration ? String(Math.round(target / totalDuration * 1000)) : "0";
-    seek.dispatchEvent(new Event("input"));
-  });
-  forwardButton?.addEventListener("click", () => {
-    const target = Math.min(totalDuration, getPosition() + 10);
-    seek.value = totalDuration ? String(Math.round(target / totalDuration * 1000)) : "0";
-    seek.dispatchEvent(new Event("input"));
-  });
-  setPlayButton(false);
-  seek.disabled = true;
-  if (backButton) backButton.disabled = true;
-  if (forwardButton) forwardButton.disabled = true;
-  window.addEventListener("pagehide", cleanup, { once: true });
+  const cleanText=value=>{const holder=document.createElement("div");holder.innerHTML=String(value||"");return(holder.textContent||holder.innerText||"").replace(/(^|\n)\s{0,3}#{1,6}\s+/g,"$1").replace(/\s+/g," ").trim();};
+  const text=[getTitle(article),getExcerpt(article),cleanText(getBody(article))].map(cleanText).filter(Boolean).join(". ").replace(/\s+/g," ").trim();
+  const chunks=[];let rest=text;while(rest.length>1800){let cut=rest.lastIndexOf(". ",1650);if(cut<850)cut=rest.lastIndexOf(" ",1650);if(cut<1)cut=1650;chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}if(rest)chunks.push(rest);
+  const rates=[1,1.25,1.5,1.75,2];let rateIndex=0,rate=1,volumeLevel=.8,audioMuted=false,currentChunk=0,charOffset=0,playing=false,paused=false,done=false,disposed=false,timer=null;
+  const totalChars=Math.max(1,text.length),estimatedTotal=Math.max(1,text.split(/\s+/).length/150*60),starts=[];let cursor=0;chunks.forEach(c=>{starts.push(cursor);cursor+=c.length;});
+  const currentChar=()=>Math.min(totalChars,(starts[currentChunk]||0)+charOffset),timeLabel=n=>formatAudioTime(n),estimated=pos=>pos/totalChars*estimated;
+  const setButton=state=>{button.textContent=state?"Ⅱ":"▶";button.setAttribute("aria-label",state?"Pausar notícia":"Reproduzir notícia");button.title=state?"Pausar notícia":"Reproduzir notícia";};
+  const progress=()=>{const pos=currentChar();elapsedLabel.textContent=timeLabel(estimated(pos));seek.value=String(Math.round(pos/totalChars*1000));seek.style.setProperty("--seek-progress",pos/totalChars*100+"%");};
+  const cleanup=()=>{disposed=true;window.speechSynthesis.cancel();if(timer)clearInterval(timer);timer=null;};window.articleTtsCleanup=cleanup;
+  const setStatus=m=>{if(!disposed)status.textContent=m;};
+  const voice=()=>{const list=window.speechSynthesis.getVoices();return list.find(v=>/^pt-BR$/i.test(v.lang))||list.find(v=>/^pt/i.test(v.lang))||null;};
+  const finish=()=>{playing=false;paused=false;done=true;charOffset=chunks[currentChunk]?.length||0;setButton(false);setStatus("Narração concluída");progress();if(timer)clearInterval(timer);timer=null;};
+  const speak=(offset=0)=>{if(disposed||!playing)return;const chunk=chunks[currentChunk]||"";charOffset=Math.max(0,Math.min(chunk.length,offset));const phrase=chunk.slice(charOffset);if(!phrase){if(currentChunk<chunks.length-1){currentChunk++;speak(0);}else finish();return;}const u=new SpeechSynthesisUtterance(phrase),v=voice();if(v)u.voice=v;u.lang=v?.lang||"pt-BR";u.rate=rate;u.volume=audioMuted?0:volumeLevel;u.onboundary=ev=>{if(!disposed&&Number.isFinite(ev.charIndex)){charOffset=Math.min(chunk.length,offset+ev.charIndex);progress();}};u.onend=()=>{if(disposed||!playing)return;charOffset=chunk.length;progress();if(currentChunk<chunks.length-1){currentChunk++;speak(0);}else finish();};u.onerror=ev=>{if(disposed||["canceled","interrupted"].includes(ev.error))return;playing=false;setButton(false);setStatus("O navegador não conseguiu continuar a narração.");};window.speechSynthesis.speak(u);};
+  const startAt=(position,run=true)=>{window.speechSynthesis.cancel();const target=Math.max(0,Math.min(totalChars,Math.round(position)));currentChunk=chunks.length-1;charOffset=chunks[currentChunk]?.length||0;for(let i=0;i<chunks.length;i++){if(target<=starts[i]+chunks[i].length||i===chunks.length-1){currentChunk=i;charOffset=Math.max(0,Math.min(chunks[i].length,target-starts[i]));break;}}done=target>=totalChars;paused=!run&&!done;playing=run&&!done;setButton(playing);progress();if(playing){setStatus("Narração do navegador · "+rate.toString().replace(".",",")+"×");speak(charOffset);if(!timer)timer=setInterval(progress,400);}else setStatus(done?"Narração concluída":"Narração pausada");};
+  button.addEventListener("click",()=>{if(playing){const pos=currentChar();window.speechSynthesis.cancel();playing=false;paused=true;setButton(false);setStatus("Narração pausada");progress();return;}startAt(done?0:currentChar(),true);});
+  volumeSlider?.addEventListener("input",()=>{volumeLevel=Math.max(0,Math.min(1,Number(volumeSlider.value)));audioMuted=volumeLevel===0;if(muteButton){muteButton.textContent=audioMuted?"🔇":"🔊";muteButton.setAttribute("aria-label",audioMuted?"Ativar áudio":"Silenciar áudio");muteButton.title=audioMuted?"Ativar áudio":"Silenciar áudio";}});
+  muteButton?.addEventListener("click",()=>{audioMuted=!audioMuted;if(!audioMuted&&volumeLevel===0)volumeLevel=.8;if(volumeSlider)volumeSlider.value=audioMuted?"0":String(volumeLevel);if(muteButton){muteButton.textContent=audioMuted?"🔇":"🔊";muteButton.setAttribute("aria-label",audioMuted?"Ativar áudio":"Silenciar áudio");muteButton.title=audioMuted?"Ativar áudio":"Silenciar áudio";}});
+  speedButton?.addEventListener("click",()=>{rateIndex=(rateIndex+1)%rates.length;rate=rates[rateIndex];speedButton.textContent=rate.toString().replace(".",",")+"×";speedButton.setAttribute("aria-label","Velocidade "+rate.toString().replace(".",",")+" vezes");setStatus((playing?"Reproduzindo":paused?"Pausado":"Pronto")+" · velocidade "+rate.toString().replace(".",",")+"×");});
+  seek.addEventListener("input",()=>startAt(totalChars*Number(seek.value)/1000,playing));
+  backButton?.addEventListener("click",()=>startAt(Math.max(0,currentChar()-totalChars*10/estimatedTotal),playing));
+  forwardButton?.addEventListener("click",()=>startAt(Math.min(totalChars,currentChar()+totalChars*10/estimatedTotal),playing));
+  setButton(false);seek.disabled=false;if(backButton)backButton.disabled=false;if(forwardButton)forwardButton.disabled=false;durationLabel.textContent=timeLabel(estimatedTotal);status.textContent="Narração pelo navegador · voz disponível no dispositivo";window.addEventListener("pagehide",cleanup,{once:true});
 }
-
 function renderArticleDetail(article) {
   const title = escapeHTML(getTitle(article));
   const category = escapeHTML(getCategory(article));
