@@ -5,7 +5,9 @@ export async function runNewsGeneration(env) {
   if (!key) throw new Error("Configure AI_API_KEY ou GROQ_API_KEY como Secret no Worker");
   const daily = await env.DB.prepare("SELECT COUNT(*) AS total FROM articles WHERE created_at >= datetime('now','start of day')").first();
   if (Number(daily.total || 0) >= 50) { console.log("[NEWS] limite diário de 50 notícias atingido", JSON.stringify({total:Number(daily.total||0)})); return { skipped: "daily_limit", total:Number(daily.total||0) }; }
-  console.log("[NEWS] limite diário", JSON.stringify({total:Number(daily.total||0)}));
+  const dailyTotal = Number(daily.total || 0);
+  const batchSize = Math.min(5, 50 - dailyTotal);
+  console.log("[NEWS] limite diário", JSON.stringify({total:dailyTotal, batchSize}));
   const feeds = String(env.RSS_FEEDS || "").split(/\r?\n|;/).map(x => x.trim()).filter(x => /^https?:\/\//i.test(x)).slice(0, 12);
   if (!feeds.length) throw new Error("RSS_FEEDS não configurado");
   console.log("[NEWS] feeds configurados", JSON.stringify({count:feeds.length}));
@@ -44,12 +46,14 @@ export async function runNewsGeneration(env) {
   }
   console.log("[NEWS] total de itens RSS", items.length);
   items.sort((a,b) => (Date.parse(b.date)||0) - (Date.parse(a.date)||0));
+  const results = [];
+  for (let batch = 0; batch < batchSize; batch++) {
   let item = null;
   for (const x of items) {
     const old = await env.DB.prepare("SELECT id FROM articles WHERE source_url = ? LIMIT 1").bind(x.link).first();
     if (!old) { item = x; break; }
   }
-  if (!item) { console.log("[NEWS] nenhum artigo novo elegível", JSON.stringify({items:items.length})); return { skipped: "no_new_articles", items:items.length }; }
+  if (!item) { console.log("[NEWS] nenhum artigo novo elegível", JSON.stringify({items:items.length, batch})); break; }
   console.log("[NEWS] artigo selecionado", JSON.stringify({source:item.source,url:item.link,title:item.title}));
   let pageText = "";
   let imageUrl = item.image || "";
@@ -118,6 +122,9 @@ export async function runNewsGeneration(env) {
   const status = String(env.AUTO_PUBLISH || "false").toLowerCase() === "true" ? "published" : "pending_review";
   const saved = await env.DB.prepare("INSERT INTO articles (category,title,excerpt,body,source_name,source_url,status,created_at,published_at,title_pt,excerpt_pt,body_pt,image_url,video_url) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?,?,NULL)").bind("Inteligência Artificial",article.title,article.excerpt,article.body,item.source,item.link,status,article.title,article.excerpt,article.body,imageUrl || null).run();
   const result = { ok: true, id: saved.meta.last_row_id, title: article.title, status: status };
-  console.log("[NEWS] notícia gravada no D1", JSON.stringify(result));
-  return result;
+  results.push(result);
+  console.log("[NEWS] notícia gravada no D1", JSON.stringify({batch:batch+1, result}));
+  }
+  console.log("[NEWS] lote concluído", JSON.stringify({generated:results.length, batchSize}));
+  return { ok: results.length > 0, generated: results.length, results };
 }
