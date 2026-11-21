@@ -90,7 +90,7 @@ class TTSRequest(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"service": "piper-tts", "status": "ok" if _voice is not None else "starting"}
 
@@ -120,13 +120,19 @@ async def synthesize(
     payload: TTSRequest,
     authorization: str | None = Header(default=None),
 ):
+    text = payload.text.strip()
+    print(
+        f"TTS request received: chars={len(text)}; "
+        f"api_key_configured={bool(API_KEY)}; "
+        f"authorization_present={bool(authorization)}"
+    )
     if not API_KEY:
+        print("TTS rejected: PIPER_API_KEY ausente no ambiente do Render.")
         raise HTTPException(status_code=503, detail="PIPER_API_KEY não configurada no serviço.")
     expected = f"Bearer {API_KEY}"
     if not authorization or not hmac.compare_digest(authorization, expected):
+        print("TTS rejected: falha de autenticação Bearer.")
         raise HTTPException(status_code=401, detail="Não autorizado.")
-
-    text = payload.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Texto vazio.")
     if len(text) > MAX_TEXT_CHARS:
