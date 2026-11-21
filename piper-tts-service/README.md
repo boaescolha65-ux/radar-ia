@@ -10,7 +10,8 @@ Serviço de síntese de voz independente. Não substitui o serviço Edge TTS exi
 - Limite por requisição: 1.400 caracteres
 - Concorrência: uma geração por vez para reduzir o consumo de memória
 - Modelo ONNX: aproximadamente 63 MB
-- Licença do modelo: MIT
+- Licença do modelo de voz: MIT
+- Licença do pacote `piper-tts`: GPL-3.0-or-later
 
 ## Criar um serviço separado no Render
 
@@ -39,9 +40,8 @@ Crie no novo serviço uma variável de ambiente:
 
 Não reutilize nem altere a chave do Edge TTS ou qualquer variável do Worker. O endpoint de síntese permanece bloqueado sem essa chave.
 
-Variáveis opcionais:
+Variável opcional:
 
-- `PIPER_VOICE`: padrão `pt_BR-faber-medium`.
 - `PIPER_MODEL_PATH`: caminho completo do arquivo ONNX, se não usar o caminho padrão.
 
 ## Endpoints
