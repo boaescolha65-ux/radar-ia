@@ -1,7 +1,7 @@
 /**
  * O Seu Radar — API principal
  * Notícias públicas, painel administrativo e sitemap.
- * Áudio: Piper TTS hospedado no Piper/Render.
+ * Áudio: Piper TTS hospedado no Render.
  *
  * Cloudflare bindings:
  *   DB -> radar-ia-db (D1)
@@ -101,7 +101,7 @@ async function handleTTS(request, env, headers) {
       return json({ error: "Limite diário de 40 trechos por IP atingido. Tente amanhã." }, 429, headers);
     }
 
-    // O Piper/Render Free pode precisar de tempo extra para acordar e carregar o modelo Piper.
+    // O Render Free pode precisar de tempo extra para acordar e carregar o modelo Piper.
     // Retentativas apenas para falhas transitórias; autenticação e limite não são repetidos.
     let response = null;
     let lastError = null;
@@ -137,10 +137,10 @@ async function handleTTS(request, env, headers) {
       console.error("[TTS] Piper não respondeu após tentativas:", status, lastError ? String(lastError) : "");
       return json({
         error: status === 401 || status === 403
-          ? "A autenticação do serviço Piper no Piper/Render falhou."
+          ? "A autenticação do serviço Piper no Render falhou."
           : status === 429
             ? "O serviço Piper está temporariamente limitado."
-            : "O serviço Piper no Piper/Render continua indisponível após novas tentativas. Tente novamente em instantes."
+            : "O serviço Piper no Render continua indisponível após novas tentativas. Tente novamente em instantes."
       }, status === 429 ? 429 : 502, headers);
     }
 
@@ -160,8 +160,8 @@ async function handleTTS(request, env, headers) {
       headers: { ...headers, "Content-Type": "audio/wav", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "MISS" }
     });
   } catch (error) {
-    console.error("[TTS] falha na conexão com Piper/Render:", error && error.stack ? error.stack : String(error));
-    return json({ error: "Não foi possível conectar ao serviço de áudio no Piper/Render." }, 502, headers);
+    console.error("[TTS] falha na conexão com Render:", error && error.stack ? error.stack : String(error));
+    return json({ error: "Não foi possível conectar ao serviço de áudio no Render." }, 502, headers);
   }
 }
 
