@@ -45,127 +45,6 @@ function authorized(request, env) {
   return Boolean(env.ADMIN_TOKEN && token === "Bearer " + env.ADMIN_TOKEN);
 }
 
-const EDGE_TTS_URL = "https://radar-ia-mlww.onrender.com/api/tts";
-const TTS_MAX_TEXT = 1400;
-const TTS_DAILY_LIMIT = 1000;
-const TTS_CACHE_TTL = 60 * 60 * 24 * 14;
-
-async function ttsSha256(value) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function ttsRateLimit(env, ip) {
-  if (!env.TTS_KV) return true;
-  const key = "tts-limit:" + (await ttsSha256(ip || "unknown")).slice(0, 32);
-  const current = Number(await env.TTS_KV.get(key) || 0);
-  if (current >= TTS_DAILY_LIMIT) return false;
-  await env.TTS_KV.put(key, String(current + 1), { expirationTtl: 86400 });
-  return true;
-}
-
-async function handleTTS(request, env, headers) {
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, headers);
-  if (!env.EDGE_TTS_API_KEY) {
-    return json({ error: "Serviço de áudio não configurado: falta o secret EDGE_TTS_API_KEY no Worker." }, 503, headers);
-  }
-
-  let body;
-  try { body = await request.json(); }
-  catch { return json({ error: "JSON inválido." }, 400, headers); }
-
-  const text = typeof body?.text === "string" ? body.text.trim() : "";
-  if (!text) return json({ error: "Texto vazio." }, 400, headers);
-  if (text.length > TTS_MAX_TEXT) {
-    return json({ error: "Trecho excede 1.400 caracteres." }, 413, headers);
-  }
-
-  const cacheKey = "edge-audio:pt-BR-FranciscaNeural:" + await ttsSha256(text);
-  if (env.TTS_KV) {
-    try {
-      const cached = await env.TTS_KV.get(cacheKey, "arrayBuffer");
-      if (cached) {
-        return new Response(cached, {
-          status: 200,
-          headers: { ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "HIT" }
-        });
-      }
-    } catch (error) {
-      console.warn("[TTS] falha ao ler cache KV:", String(error));
-    }
-  }
-
-  try {
-    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    if (!(await ttsRateLimit(env, ip))) {
-      return json({ error: `Limite diário de ${TTS_DAILY_LIMIT} trechos por IP atingido. Tente amanhã.`, code: "TTS_DAILY_LIMIT" }, 429, headers);
-    }
-
-    // O Render Free pode precisar de tempo extra para acordar e carregar o modelo Edge TTS.
-    // Retentativas apenas para falhas transitórias; autenticação e limite não são repetidos.
-    let response = null;
-    let lastError = null;
-    const retryDelays = [5000, 10000, 15000];
-    for (let attempt = 0; attempt < 4; attempt++) {
-      try {
-        response = await fetch(EDGE_TTS_URL, {
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer " + env.EDGE_TTS_API_KEY,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg"
-          },
-          body: JSON.stringify({ text }),
-          signal: AbortSignal.timeout(90000)
-        });
-        if (response.ok || response.status === 401 || response.status === 403 || response.status === 429) break;
-        if (![408, 500, 502, 503, 504].includes(response.status)) break;
-        const detail = await response.text();
-        lastError = new Error("Edge TTS HTTP " + response.status + ": " + detail.slice(0, 300));
-        console.warn("[TTS] Edge TTS indisponível na tentativa", attempt + 1, response.status);
-      } catch (error) {
-        lastError = error;
-        console.warn("[TTS] falha transitória na tentativa", attempt + 1, String(error));
-      }
-      if (attempt < retryDelays.length) {
-        await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
-      }
-    }
-
-    if (!response || !response.ok) {
-      const status = response?.status || 502;
-      console.error("[TTS] Edge TTS não respondeu após tentativas:", status, lastError ? String(lastError) : "");
-      return json({
-        error: status === 401 || status === 403
-          ? "A autenticação do serviço Edge TTS no Render falhou."
-          : status === 429
-            ? "O serviço Edge TTS está temporariamente limitado."
-            : "O serviço Edge TTS no Render continua indisponível após novas tentativas. Tente novamente em instantes.",
-        ...(status === 429 ? { code: "EDGE_UPSTREAM_RATE_LIMIT" } : {})
-      }, status === 429 ? 429 : 502, headers);
-    }
-
-    const audio = await response.arrayBuffer();
-    const contentType = response.headers.get("Content-Type") || "";
-    if (!audio.byteLength || audio.byteLength > 4 * 1024 * 1024 || !contentType.toLowerCase().includes("audio/mpeg")) {
-      return json({ error: "O Edge TTS retornou um arquivo MP3 inválido ou vazio." }, 502, headers);
-    }
-
-    if (env.TTS_KV) {
-      try { await env.TTS_KV.put(cacheKey, audio, { expirationTtl: TTS_CACHE_TTL }); }
-      catch (error) { console.warn("[TTS] falha ao gravar cache KV:", String(error)); }
-    }
-
-    return new Response(audio, {
-      status: 200,
-      headers: { ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "MISS" }
-    });
-  } catch (error) {
-    console.error("[TTS] falha na conexão com Render:", error && error.stack ? error.stack : String(error));
-    return json({ error: "Não foi possível conectar ao serviço de áudio no Render." }, 502, headers);
-  }
-}
-
 async function handleArticles(request, env, headers) {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405, headers);
   if (!env.DB) return json({ error: "D1 binding DB não configurado." }, 503, headers);
@@ -292,7 +171,6 @@ export default {
     }
     if (url.pathname === "/sitemap.xml" && request.method === "GET") return handleSitemap(env);
     if (url.pathname === "/api/articles.json") return handleArticles(request, env, headers);
-    if (url.pathname === "/api/tts") return handleTTS(request, env, headers);
     if (url.pathname.startsWith("/admin/")) return handleAdmin(request, env, headers, url.pathname);
     return json({ error: "Not found" }, 404, headers);
   },
