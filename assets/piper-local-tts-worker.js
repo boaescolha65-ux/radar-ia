@@ -9,6 +9,7 @@ const CONFIG_URL = "https://huggingface.co/Trelis/piper-pt-br-faber-medium/resol
 const CACHE_NAME = "oseuradar-piper-ptbr-v1";
 
 let runtimePromise = null;
+let phonemizerOutput = [];
 let queue = Promise.resolve();
 const cancelled = new Set();
 
@@ -68,7 +69,7 @@ async function initialize(id) {
 
     progress(id, "Preparando a pronúncia em português brasileiro…");
     const phonemizer = await createPiperPhonemize({
-      print: () => {},
+      print: line => { if (line) phonemizerOutput.push(line); },
       printErr: message => console.warn("[Piper phonemizer]", message),
       locateFile: file => PHONEMIZER_BASE + file
     });
@@ -115,10 +116,8 @@ async function synthesizeText(id, text) {
   if (cancelled.has(id)) throw new DOMException("Geração cancelada.", "AbortError");
 
   progress(id, "Convertendo texto em fonemas…");
-  const outputLines = [];
+  phonemizerOutput = [];
   const phonemizer = engine.phonemizer;
-  const previousPrint = phonemizer.print;
-  phonemizer.print = line => { if (line) outputLines.push(line); };
 
   try {
     const exitCode = phonemizer.callMain([
@@ -127,12 +126,12 @@ async function synthesizeText(id, text) {
       "--espeak_data", "/espeak-ng-data"
     ]);
     if (exitCode !== 0) throw new Error("O Piper não conseguiu preparar a pronúncia do texto.");
-  } finally {
-    phonemizer.print = previousPrint;
+  } catch (error) {
+    throw error;
   }
 
   let phonemeResult = null;
-  for (const line of outputLines) {
+  for (const line of phonemizerOutput) {
     try { phonemeResult = JSON.parse(line); } catch (_) {}
   }
   if (!phonemeResult || !Array.isArray(phonemeResult.phoneme_ids) || !phonemeResult.phoneme_ids.length) {
