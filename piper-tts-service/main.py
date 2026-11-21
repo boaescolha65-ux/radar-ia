@@ -1,13 +1,17 @@
 import asyncio
+import gc
 import hmac
 import json
 import os
 import resource
+import tempfile
 import time
 import wave
 from contextlib import asynccontextmanager
-from io import BytesIO
 from pathlib import Path
+
+from starlette.background import BackgroundTask
+from fastapi.responses import FileResponse
 
 import onnxruntime as ort
 from fastapi import FastAPI, Header, HTTPException
@@ -106,13 +110,55 @@ async def health():
     }
 
 
-def _synthesize_wav(text: str) -> bytes:
+def _split_for_low_memory(text: str, max_chars: int = 220) -> list[str]:
+    """Divide trechos longos antes da inferência para limitar o pico de RAM."""
+    words = text.split()
+    parts: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > max_chars:
+            parts.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        parts.append(current)
+    return parts
+
+
+def _synthesize_wav_file(text: str) -> str:
     if _voice is None:
         raise RuntimeError("Modelo Piper ainda não foi carregado.")
-    output = BytesIO()
-    with wave.open(output, "wb") as wav_file:
-        _voice.synthesize_wav(text, wav_file)
-    return output.getvalue()
+
+    fd, output_path = tempfile.mkstemp(prefix="piper-", suffix=".wav")
+    os.close(fd)
+    try:
+        with wave.open(output_path, "wb") as wav_file:
+            first_part = True
+            for part in _split_for_low_memory(text):
+                _voice.synthesize_wav(
+                    part,
+                    wav_file,
+                    set_wav_format=first_part,
+                )
+                first_part = False
+                # Libera arrays temporários de áudio antes da próxima inferência.
+                gc.collect()
+        return output_path
+    except Exception:
+        try:
+            os.unlink(output_path)
+        except OSError:
+            pass
+        raise
+
+
+def _remove_temp_audio(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 @app.post("/api/tts")
@@ -139,29 +185,38 @@ async def synthesize(
         raise HTTPException(status_code=413, detail="Trecho excede 1.400 caracteres.")
 
     started = time.monotonic()
+    output_path = None
     try:
         async with _generation_limit:
-            audio = await asyncio.to_thread(_synthesize_wav, text)
+            output_path = await asyncio.to_thread(_synthesize_wav_file, text)
 
-        if not audio:
-            raise RuntimeError("O Piper não retornou áudio.")
+        audio_bytes = os.path.getsize(output_path)
+        if audio_bytes <= 44:
+            raise RuntimeError("O Piper não retornou áudio WAV válido.")
+        if audio_bytes > 4 * 1024 * 1024:
+            raise RuntimeError("O WAV gerado excedeu o limite de 4 MB.")
 
         elapsed = time.monotonic() - started
         print(
-            f"Piper TTS OK: chars={len(text)}; audio_bytes={len(audio)}; "
+            f"Piper TTS OK: chars={len(text)}; audio_bytes={audio_bytes}; "
             f"seconds={elapsed:.1f}; peak_rss_mb={memory_peak_mb()}"
         )
-        return Response(
-            content=audio,
+        response = FileResponse(
+            output_path,
             media_type="audio/wav",
             headers={
                 "Cache-Control": "no-store",
                 "X-TTS-Voice": VOICE_NAME,
             },
+            background=BackgroundTask(_remove_temp_audio, output_path),
         )
+        output_path = None  # A limpeza fica a cargo do BackgroundTask.
+        return response
     except HTTPException:
         raise
     except Exception as exc:
+        if output_path:
+            _remove_temp_audio(output_path)
         print(
             f"Piper TTS synthesis error: {type(exc).__name__}: {exc}; "
             f"peak_rss_mb={memory_peak_mb()}"
