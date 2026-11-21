@@ -7,7 +7,6 @@
     "crons": ["*/15 * * * *"]
   },
   // Preserve dashboard-managed variables and secrets during Wrangler deployments.
-  // EDGE_TTS_API_KEY must remain a Secret in Cloudflare, not a plaintext vars entry.
   "keep_vars": true,
   "observability": {
     "logs": {
@@ -25,12 +24,6 @@
       "binding": "DB",
       "database_name": "radar-ia-db",
       "database_id": "7c10231c-7142-46c9-9bca-a13012edbd53"
-    }
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "TTS_KV",
-      "id": "e25b3ba7c35540c1a00d8243596df88f"
     }
   ]
 }
