@@ -2535,10 +2535,11 @@ function setupArticleAudio(article) {
     .map(cleanText).filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
   const chunks = [];
   let remaining = text;
-  while (remaining.length > 1400) {
-    let cut = remaining.lastIndexOf(". ", 1300);
-    if (cut < 650) cut = remaining.lastIndexOf(" ", 1300);
-    if (cut < 1) cut = 1300;
+  const TTS_CHUNK_SIZE = 950;
+  while (remaining.length > TTS_CHUNK_SIZE) {
+    let cut = remaining.lastIndexOf(". ", TTS_CHUNK_SIZE - 100);
+    if (cut < 450) cut = remaining.lastIndexOf(" ", TTS_CHUNK_SIZE - 100);
+    if (cut < 1) cut = TTS_CHUNK_SIZE - 100;
     chunks.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trim();
   }
@@ -2693,12 +2694,22 @@ function setupArticleAudio(article) {
       button.disabled = false;
       button.textContent = "▶";
       button.setAttribute("aria-label", "Reproduzir notícia");
-      if (error.name === "AbortError") setStatus("Geração de áudio cancelada.");
-      else setStatus(error.message || "Não foi possível gerar a narração.");
-      cleanupUrls();
-      totalDuration = 0;
-      cumulative = [];
-      seek.disabled = true;
+      if (parts.length) {
+        seek.disabled = false;
+        if (backButton) backButton.disabled = false;
+        if (forwardButton) forwardButton.disabled = false;
+        durationLabel.textContent = timeLabel(totalDuration);
+        setStatus("Narração parcial: " + parts.length + " de " + chunks.length + " trechos disponíveis. Clique em reproduzir.");
+      } else {
+        if (error.name === "AbortError") setStatus("Geração de áudio cancelada.");
+        else setStatus(error.message || "Não foi possível gerar a narração.");
+        cleanupUrls();
+        totalDuration = 0;
+        cumulative = [];
+        seek.disabled = true;
+        if (backButton) backButton.disabled = true;
+        if (forwardButton) forwardButton.disabled = true;
+      }
     }
   };
   button.addEventListener("click", async () => {
