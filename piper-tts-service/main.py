@@ -14,7 +14,7 @@ from piper import PiperVoice
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = Path(os.getenv("PIPER_MODEL_PATH", str(BASE_DIR / "voices" / "pt_BR-faber-medium.onnx")))
-VOICE_NAME = os.getenv("PIPER_VOICE", "pt_BR-faber-medium")
+VOICE_NAME = "pt_BR-faber-medium"
 API_KEY = os.getenv("PIPER_API_KEY", "")
 MAX_TEXT_CHARS = 1400
 _generation_limit = asyncio.Semaphore(1)
