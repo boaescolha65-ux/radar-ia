@@ -1,0 +1,17 @@
+O Seu Radar — avisos de licenças da síntese local Piper
+
+1. Modelo de voz pt_BR-faber-medium
+   Fonte: Trelis/piper-pt-br-faber-medium (Hugging Face)
+   Licença declarada: CC0 1.0.
+   URL: https://huggingface.co/Trelis/piper-pt-br-faber-medium
+
+2. @diffusionstudio/piper-wasm 1.0.0
+   Licença: MIT.
+   URL: https://www.npmjs.com/package/@diffusionstudio/piper-wasm
+
+3. onnxruntime-web 1.17.3
+   Licença: MIT.
+   URL: https://www.npmjs.com/package/onnxruntime-web
+
+Os arquivos de terceiros são carregados sob demanda a partir dos respectivos distribuidores.
+O texto das notícias é processado localmente no navegador e não é enviado ao serviço TTS.
