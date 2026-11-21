@@ -1501,10 +1501,6 @@ body.about-view #contato {
 .audio-news-player .audio-speed { flex-shrink:0; padding:6px 10px; border:1px solid #d8e1e9; border-radius:999px; background:#fff; color:#243348; cursor:pointer; font-size:12px; font-weight:800;  }
 .audio-news-player .audio-speed:hover { border-color:#087f72; color:#087f72; }
 .audio-news-player .audio-speed:focus-visible { outline:3px solid #5eead4; outline-offset:2px; }
-.audio-news-player .audio-volume-group { display:inline-flex; align-items:center; gap:7px; }
-.audio-news-player .audio-volume-control { display:inline-flex; align-items:center; gap:7px; color:#243348; font-size:14px; }
-.audio-news-player .audio-volume { width:92px; accent-color:#087f72; cursor:pointer; }
-.audio-news-player .audio-volume:focus-visible { outline:3px solid #5eead4; outline-offset:2px; }
 .audio-news-player .audio-label { display:block; color:#202b3c; font-size:14px; font-weight:800; }
 .audio-news-player .audio-status { display:block; margin-top:2px; color:#748094; font-size:12px; }
 .audio-news-player .audio-progress-wrap {
@@ -2501,13 +2497,6 @@ function createArticleAudioPlayer(article) {
       <div class="audio-info">
         <div class="audio-info-row">
           <span class="audio-label">Ouça esta notícia</span>
-          <div class="audio-volume-group">
-            <label class="audio-volume-control" for="audioVolume" aria-label="Volume da narração">
-              <span aria-hidden="true">🔊</span>
-              <input type="range" class="audio-volume" id="audioVolume" min="0" max="1" step="0.05" value="0.8" aria-label="Volume da narração" title="Volume da narração">
-            </label>
-            <button type="button" class="audio-speed" id="audioSpeedButton" aria-label="Alterar velocidade" title="Alterar velocidade">1×</button>
-          </div>
         </div>
         <span class="audio-status" id="audioStatus" role="status">Narração do navegador · duração estimada ${formatAudioTime(estimatedSeconds)}</span>
       </div>
@@ -2525,7 +2514,7 @@ function createArticleAudioPlayer(article) {
 }
 
 function setupArticleAudio(article) {
-  const button=document.getElementById("audioToggleButton"),speedButton=document.getElementById("audioSpeedButton"),volumeSlider=document.getElementById("audioVolume"),status=document.getElementById("audioStatus"),elapsedLabel=document.getElementById("audioElapsed"),durationLabel=document.getElementById("audioDuration"),seek=document.getElementById("audioSeek"),backButton=document.getElementById("audioBackButton"),forwardButton=document.getElementById("audioForwardButton");
+  const button=document.getElementById("audioToggleButton"),speedButton=document.getElementById("audioSpeedButton"),status=document.getElementById("audioStatus"),elapsedLabel=document.getElementById("audioElapsed"),durationLabel=document.getElementById("audioDuration"),seek=document.getElementById("audioSeek"),backButton=document.getElementById("audioBackButton"),forwardButton=document.getElementById("audioForwardButton");
   if(!button||!status||!elapsedLabel||!durationLabel||!seek||!("speechSynthesis" in window)){if(status)status.textContent="Narração nativa não disponível neste navegador.";if(button)button.disabled=true;return;}
   window.articleTtsCleanup?.();
   const cleanText=value=>{const holder=document.createElement("div");holder.innerHTML=String(value||"");return(holder.textContent||holder.innerText||"").replace(/(^|\n)\s{0,3}#{1,6}\s+/g,"$1").replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();};
@@ -2543,7 +2532,7 @@ function setupArticleAudio(article) {
   });
   if(separators.length)separators.pop();
   
-  const rates=[1,1.25,1.5,1.75,2];let rateIndex=0,rate=1,volumeLevel=.8,audioMuted=false,activeUtterance=null,currentChunk=0,charOffset=0,playing=false,paused=false,done=false,disposed=false,timer=null,nextTimer=null,elapsedBase=0,playStartedAt=0;
+  const rates=[1,1.25,1.5,1.75,2];let rateIndex=0,rate=1,activeUtterance=null,currentChunk=0,charOffset=0,playing=false,paused=false,done=false,disposed=false,timer=null,nextTimer=null,elapsedBase=0,playStartedAt=0;
   const totalChars=Math.max(1,text.length),estimatedTotal=Math.max(1,text.split(/\s+/).length/150*60),starts=[];let cursor=0;chunks.forEach((chunk,i)=>{starts.push(cursor);cursor+=chunk.length+(separators[i]?.length||0);});
   const currentChar=()=>Math.min(totalChars,(starts[currentChunk]||0)+charOffset),timeLabel=n=>formatAudioTime(n),estimated=pos=>pos/totalChars*estimatedTotal,durationSeconds=()=>estimatedTotal/rate,elapsedSeconds=()=>Math.min(durationSeconds(),elapsedBase+(playing?(Date.now()-playStartedAt)/1000:0));
   const setButton=state=>{button.textContent=state?"Ⅱ":"▶";button.setAttribute("aria-label",state?"Pausar notícia":"Reproduzir notícia");button.title=state?"Pausar notícia":"Reproduzir notícia";};
@@ -2552,10 +2541,9 @@ function setupArticleAudio(article) {
   const setStatus=m=>{if(!disposed)status.textContent=m;};
   const voice=()=>{const list=window.speechSynthesis.getVoices();return list.find(v=>/^pt-BR$/i.test(v.lang)&&(/natural|neural|online/i.test(v.name)))||list.find(v=>/^pt-BR$/i.test(v.lang))||list.find(v=>/^pt/i.test(v.lang))||null;};
   const finish=()=>{elapsedBase=durationSeconds();playing=false;paused=false;done=true;charOffset=chunks[currentChunk]?.length||0;setButton(false);setStatus("Narração concluída");progress();if(timer)clearInterval(timer);timer=null;};
-  const speak=(offset=0)=>{if(disposed||!playing)return;const chunk=chunks[currentChunk]||"",phrase=chunk.slice(Math.max(0,offset));charOffset=Math.max(0,Math.min(chunk.length,offset));if(!phrase){if(currentChunk<chunks.length-1){currentChunk++;nextTimer=setTimeout(()=>speak(0),350);}else finish();return;}const u=new SpeechSynthesisUtterance(phrase),v=voice();activeUtterance=u;if(v)u.voice=v;u.lang=v?.lang||"pt-BR";u.rate=rate;u.volume=audioMuted?0:volumeLevel;u.onboundary=ev=>{if(!disposed&&Number.isFinite(ev.charIndex)){charOffset=Math.min(chunk.length,offset+ev.charIndex);progress();}};u.onend=()=>{if(activeUtterance===u)activeUtterance=null;if(disposed||!playing)return;charOffset=chunk.length;progress();if(currentChunk<chunks.length-1){currentChunk++;nextTimer=setTimeout(()=>speak(0),80);}else finish();};u.onerror=ev=>{if(activeUtterance===u)activeUtterance=null;if(disposed||["canceled","interrupted"].includes(ev.error))return;playing=false;setButton(false);setStatus("O navegador não conseguiu continuar a narração.");};window.speechSynthesis.speak(u);};
+  const speak=(offset=0)=>{if(disposed||!playing)return;const chunk=chunks[currentChunk]||"",phrase=chunk.slice(Math.max(0,offset));charOffset=Math.max(0,Math.min(chunk.length,offset));if(!phrase){if(currentChunk<chunks.length-1){currentChunk++;nextTimer=setTimeout(()=>speak(0),350);}else finish();return;}const u=new SpeechSynthesisUtterance(phrase),v=voice();activeUtterance=u;if(v)u.voice=v;u.lang=v?.lang||"pt-BR";u.rate=rate;u.onboundary=ev=>{if(!disposed&&Number.isFinite(ev.charIndex)){charOffset=Math.min(chunk.length,offset+ev.charIndex);progress();}};u.onend=()=>{if(activeUtterance===u)activeUtterance=null;if(disposed||!playing)return;charOffset=chunk.length;progress();if(currentChunk<chunks.length-1){currentChunk++;nextTimer=setTimeout(()=>speak(0),80);}else finish();};u.onerror=ev=>{if(activeUtterance===u)activeUtterance=null;if(disposed||["canceled","interrupted"].includes(ev.error))return;playing=false;setButton(false);setStatus("O navegador não conseguiu continuar a narração.");};window.speechSynthesis.speak(u);};
   const startAt=(position,run=true)=>{window.speechSynthesis.cancel();if(nextTimer)clearTimeout(nextTimer);const target=Math.max(0,Math.min(totalChars,Math.round(position)));currentChunk=chunks.length-1;charOffset=chunks[currentChunk]?.length||0;for(let i=0;i<chunks.length;i++){if(target<=starts[i]+chunks[i].length||i===chunks.length-1){currentChunk=i;charOffset=Math.max(0,Math.min(chunks[i].length,target-starts[i]));break;}}done=target>=totalChars;elapsedBase=estimated(target)/rate;paused=!run&&!done;playing=run&&!done;playStartedAt=Date.now();setButton(playing);progress();if(playing){setStatus("Narração do navegador · "+rate.toString().replace(".",",")+"×");speak(charOffset);if(!timer)timer=setInterval(progress,200);}else setStatus(done?"Narração concluída":"Narração pausada");};
   button.addEventListener("click",()=>{if(playing){elapsedBase=elapsedSeconds();const pos=currentChar();window.speechSynthesis.cancel();if(nextTimer)clearTimeout(nextTimer);playing=false;paused=true;setButton(false);setStatus("Narração pausada");progress();return;}startAt(done?0:currentChar(),true);});
-  volumeSlider?.addEventListener("input",()=>{volumeLevel=Math.max(0,Math.min(1,Number(volumeSlider.value)));});
   speedButton?.addEventListener("click",()=>{rateIndex=(rateIndex+1)%rates.length;rate=rates[rateIndex];speedButton.textContent=rate.toString().replace(".",",")+"×";speedButton.setAttribute("aria-label","Velocidade "+rate.toString().replace(".",",")+" vezes");setStatus((playing?"Reproduzindo":paused?"Pausado":"Pronto")+" · velocidade "+rate.toString().replace(".",",")+"×");});
   seek.addEventListener("input",()=>startAt(totalChars*Number(seek.value)/1000,playing));
   const skipBySeconds=seconds=>{const position=currentChar(),characterDelta=totalChars*seconds*rate/estimatedTotal;startAt(Math.max(0,Math.min(totalChars,position+characterDelta)),playing);};
