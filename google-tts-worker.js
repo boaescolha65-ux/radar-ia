@@ -47,7 +47,7 @@ function authorized(request, env) {
 
 const PIPER_TTS_URL = "https://radar-ia-1.onrender.com/api/tts";
 const TTS_MAX_TEXT = 1400;
-const TTS_DAILY_LIMIT = 40;
+const TTS_DAILY_LIMIT = 200;
 const TTS_CACHE_TTL = 60 * 60 * 24 * 14;
 
 async function ttsSha256(value) {
