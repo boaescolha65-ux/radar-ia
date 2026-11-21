@@ -1,7 +1,7 @@
 /**
  * O Seu Radar — API principal
  * Notícias públicas, painel administrativo e sitemap.
- * Áudio removido: /api/tts retorna 410 até a adoção de uma nova solução.
+ * Áudio: Piper TTS hospedado no Piper/Render.
  *
  * Cloudflare bindings:
  *   DB -> radar-ia-db (D1)
@@ -45,7 +45,7 @@ function authorized(request, env) {
   return Boolean(env.ADMIN_TOKEN && token === "Bearer " + env.ADMIN_TOKEN);
 }
 
-const EDGE_TTS_URL = "https://radar-ia-mlww.onrender.com/api/tts";
+const PIPER_TTS_URL = "https://radar-ia-1.onrender.com/api/tts";
 const TTS_MAX_TEXT = 1400;
 const TTS_DAILY_LIMIT = 40;
 const TTS_CACHE_TTL = 60 * 60 * 24 * 14;
@@ -66,8 +66,8 @@ async function ttsRateLimit(env, ip) {
 
 async function handleTTS(request, env, headers) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, headers);
-  if (!env.EDGE_TTS_API_KEY) {
-    return json({ error: "Serviço de áudio não configurado: falta o secret EDGE_TTS_API_KEY no Worker." }, 503, headers);
+  if (!env.PIPER_API_KEY) {
+    return json({ error: "Serviço de áudio não configurado: falta o secret PIPER_API_KEY no Worker." }, 503, headers);
   }
 
   let body;
@@ -80,14 +80,14 @@ async function handleTTS(request, env, headers) {
     return json({ error: "Trecho excede 1.400 caracteres." }, 413, headers);
   }
 
-  const cacheKey = "edge-audio:pt-BR-FranciscaNeural:" + await ttsSha256(text);
+  const cacheKey = "piper-audio:pt_BR-faber-medium:" + await ttsSha256(text);
   if (env.TTS_KV) {
     try {
       const cached = await env.TTS_KV.get(cacheKey, "arrayBuffer");
       if (cached) {
         return new Response(cached, {
           status: 200,
-          headers: { ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "HIT" }
+          headers: { ...headers, "Content-Type": "audio/wav", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "HIT" }
         });
       }
     } catch (error) {
@@ -101,28 +101,28 @@ async function handleTTS(request, env, headers) {
       return json({ error: "Limite diário de 40 trechos por IP atingido. Tente amanhã." }, 429, headers);
     }
 
-    // Render Free pode levar cerca de 1 minuto para acordar após inatividade.
-    // Repetimos apenas falhas transitórias; erros de autenticação/limite não são repetidos.
+    // O Piper/Render Free pode precisar de tempo extra para acordar e carregar o modelo Piper.
+    // Retentativas apenas para falhas transitórias; autenticação e limite não são repetidos.
     let response = null;
     let lastError = null;
-    const retryDelays = [5000, 10000, 15000, 20000];
-    for (let attempt = 0; attempt < 5; attempt++) {
+    const retryDelays = [5000, 10000, 15000];
+    for (let attempt = 0; attempt < 4; attempt++) {
       try {
-        response = await fetch(EDGE_TTS_URL, {
+        response = await fetch(PIPER_TTS_URL, {
           method: "POST",
           headers: {
-            "Authorization": "Bearer " + env.EDGE_TTS_API_KEY,
+            "Authorization": "Bearer " + env.PIPER_API_KEY,
             "Content-Type": "application/json",
-            "Accept": "audio/mpeg"
+            "Accept": "audio/wav"
           },
           body: JSON.stringify({ text }),
-          signal: AbortSignal.timeout(35000)
+          signal: AbortSignal.timeout(90000)
         });
         if (response.ok || response.status === 401 || response.status === 403 || response.status === 429) break;
         if (![408, 500, 502, 503, 504].includes(response.status)) break;
         const detail = await response.text();
-        lastError = new Error("Render HTTP " + response.status + ": " + detail.slice(0, 300));
-        console.warn("[TTS] Render indisponível na tentativa", attempt + 1, response.status);
+        lastError = new Error("Piper HTTP " + response.status + ": " + detail.slice(0, 300));
+        console.warn("[TTS] Piper indisponível na tentativa", attempt + 1, response.status);
       } catch (error) {
         lastError = error;
         console.warn("[TTS] falha transitória na tentativa", attempt + 1, String(error));
@@ -134,20 +134,20 @@ async function handleTTS(request, env, headers) {
 
     if (!response || !response.ok) {
       const status = response?.status || 502;
-      console.error("[TTS] Render não respondeu após tentativas:", status, lastError ? String(lastError) : "");
+      console.error("[TTS] Piper não respondeu após tentativas:", status, lastError ? String(lastError) : "");
       return json({
         error: status === 401 || status === 403
-          ? "A autenticação do serviço de áudio no Render falhou."
+          ? "A autenticação do serviço Piper no Piper/Render falhou."
           : status === 429
-            ? "O serviço de áudio está temporariamente limitado."
-            : "O serviço de áudio no Render continua indisponível após novas tentativas. Tente novamente em instantes."
+            ? "O serviço Piper está temporariamente limitado."
+            : "O serviço Piper no Piper/Render continua indisponível após novas tentativas. Tente novamente em instantes."
       }, status === 429 ? 429 : 502, headers);
     }
 
     const audio = await response.arrayBuffer();
     const contentType = response.headers.get("Content-Type") || "";
-    if (!audio.byteLength || audio.byteLength > 4 * 1024 * 1024 || !contentType.toLowerCase().includes("audio/")) {
-      return json({ error: "O Render retornou um arquivo de áudio inválido ou vazio." }, 502, headers);
+    if (!audio.byteLength || audio.byteLength > 4 * 1024 * 1024 || !contentType.toLowerCase().includes("audio/wav")) {
+      return json({ error: "O Piper retornou um arquivo WAV inválido ou vazio." }, 502, headers);
     }
 
     if (env.TTS_KV) {
@@ -157,11 +157,11 @@ async function handleTTS(request, env, headers) {
 
     return new Response(audio, {
       status: 200,
-      headers: { ...headers, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "MISS" }
+      headers: { ...headers, "Content-Type": "audio/wav", "Cache-Control": "public, max-age=86400", "X-TTS-Cache": "MISS" }
     });
   } catch (error) {
-    console.error("[TTS] falha na conexão com Render:", error && error.stack ? error.stack : String(error));
-    return json({ error: "Não foi possível conectar ao serviço de áudio no Render." }, 502, headers);
+    console.error("[TTS] falha na conexão com Piper/Render:", error && error.stack ? error.stack : String(error));
+    return json({ error: "Não foi possível conectar ao serviço de áudio no Piper/Render." }, 502, headers);
   }
 }
 
