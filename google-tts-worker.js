@@ -98,7 +98,7 @@ async function handleTTS(request, env, headers) {
   try {
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     if (!(await ttsRateLimit(env, ip))) {
-      return json({ error: "Limite diário de 40 trechos por IP atingido. Tente amanhã." }, 429, headers);
+      return json({ error: `Limite diário de ${TTS_DAILY_LIMIT} trechos por IP atingido. Tente amanhã.`, code: "TTS_DAILY_LIMIT" }, 429, headers);
     }
 
     // O Render Free pode precisar de tempo extra para acordar e carregar o modelo Piper.
@@ -140,7 +140,8 @@ async function handleTTS(request, env, headers) {
           ? "A autenticação do serviço Piper no Render falhou."
           : status === 429
             ? "O serviço Piper está temporariamente limitado."
-            : "O serviço Piper no Render continua indisponível após novas tentativas. Tente novamente em instantes."
+            : "O serviço Piper no Render continua indisponível após novas tentativas. Tente novamente em instantes.",
+        ...(status === 429 ? { code: "PIPER_UPSTREAM_RATE_LIMIT" } : {})
       }, status === 429 ? 429 : 502, headers);
     }
 
