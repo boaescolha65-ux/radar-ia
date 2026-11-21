@@ -292,7 +292,7 @@ export default {
     }
     if (url.pathname === "/sitemap.xml" && request.method === "GET") return handleSitemap(env);
     if (url.pathname === "/api/articles.json") return handleArticles(request, env, headers);
-    if (url.pathname === "/api/tts") return handleTTS(request, env, headers);
+    if (url.pathname === "/api/tts") return json({ error: "A rota de narração Edge TTS está temporariamente desativada.", code: "TTS_DISABLED" }, 503, { ...headers, "Retry-After": "3600" });
     if (url.pathname.startsWith("/admin/")) return handleAdmin(request, env, headers, url.pathname);
     return json({ error: "Not found" }, 404, headers);
   },
