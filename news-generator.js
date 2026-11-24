@@ -121,7 +121,7 @@ export async function runNewsGeneration(env) {
   } else if (/^(tecnologia da informacao|tecnologia|ti|tech|technology|information technology)$/.test(rawCategory)) {
     category = "Tecnologia da Informação";
   } else {
-    const classificationText = [item.title, item.excerpt, pageText, article.title, article.excerpt, article.body].join(" ").toLowerCase();
+    const classificationText = [item.title, item.excerpt, article.title, article.excerpt].join(" ").toLowerCase();
     const aiSignals = /\b(intelig[eê]ncia artificial|intelig[eê]ncias artificiais|ia generativa|generative ai|artificial intelligence|machine learning|aprendizado de m[aá]quina|deep learning|modelo de linguagem|large language model|\bllm\b|chatgpt|gemini|claude|gpt[-\s]?\d|copilot|agente de ia|ai agent)\b/i;
     category = aiSignals.test(classificationText) ? "Inteligência Artificial" : "Tecnologia da Informação";
   }
