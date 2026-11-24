@@ -75,9 +75,34 @@ async function handleAdmin(request, env, headers, pathname) {
       ).all();
       return json({ articles: result.results || [] }, 200, headers);
     }
+
+    // Auditoria protegida: lista notícias atualmente em IA para revisão de categoria.
+    if (pathname === "/admin/category-audit" && request.method === "GET") {
+      const requested = Number.parseInt(new URL(request.url).searchParams.get("limit") || "1000", 10);
+      const limit = Number.isFinite(requested) ? Math.min(5000, Math.max(1, requested)) : 1000;
+      const result = await env.DB.prepare(
+        "SELECT id, category, title, excerpt, body, title_pt, excerpt_pt, body_pt, status, published_at FROM articles WHERE category = 'Inteligência Artificial' ORDER BY published_at DESC, id DESC LIMIT ?"
+      ).bind(limit).all();
+      return json({ count: (result.results || []).length, articles: result.results || [] }, 200, headers);
+    }
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, headers);
     let body;
     try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, headers); }
+
+    // Aplicação explícita e restrita: somente IDs enviados e ainda classificados como IA.
+    if (pathname === "/admin/category-audit/apply") {
+      if (!Array.isArray(body?.ids) || body.ids.length < 1 || body.ids.length > 500) {
+        return json({ error: "Envie uma lista de 1 a 500 IDs numéricos." }, 400, headers);
+      }
+      const ids = [...new Set(body.ids.map(Number))];
+      if (ids.some(id => !Number.isInteger(id) || id <= 0)) return json({ error: "A lista contém ID inválido." }, 400, headers);
+      const statements = ids.map(id => env.DB.prepare(
+        "UPDATE articles SET category = 'Tecnologia da Informação' WHERE id = ? AND category = 'Inteligência Artificial'"
+      ).bind(id));
+      const results = await env.DB.batch(statements);
+      const changed = results.reduce((sum, result) => sum + Number(result.meta?.changes || 0), 0);
+      return json({ ok: true, requested: ids.length, changed, skipped: ids.length - changed, category: "Tecnologia da Informação" }, 200, headers);
+    }
 
     if (pathname === "/admin/approve" || pathname === "/admin/reject") {
       const id = Number(body?.id);
