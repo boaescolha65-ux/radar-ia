@@ -1524,6 +1524,23 @@ body.about-view #contato {
 @media (max-width:480px) { .audio-news-player { gap:10px; padding:13px; } .audio-news-player .audio-toggle { width:44px; height:44px; } }
 </style>
 
+  <!-- Google Consent Mode v2: negar armazenamento até a escolha do visitante. -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      analytics_storage: 'denied',
+      functionality_storage: 'granted',
+      security_storage: 'granted',
+      wait_for_update: 500
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('set', 'url_passthrough', false);
+  </script>
+
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1493087992822593" crossorigin="anonymous"></script>
 
 </head>
@@ -1817,6 +1834,7 @@ body.about-view #contato {
             <a href="https://wa.me/5511973440381" target="_blank" rel="noopener noreferrer">WhatsApp</a>
             <a href="/politica-de-privacidade.html">Política de privacidade</a>
             <a href="/termos-de-uso.html">Termos de uso</a>
+            <a href="#" id="privacySettingsLink">Configurações de privacidade</a>
           </div>
         </div>
       </div>
@@ -2978,6 +2996,18 @@ async function showArticle(id) {
       window.history.pushState({}, "", "/");
       showHome();
       window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    // Reabre a mensagem de privacidade do Google, permitindo revisar/revogar escolhas.
+    document.getElementById("privacySettingsLink")?.addEventListener("click", event => {
+      event.preventDefault();
+      if (window.googlefc?.callbackQueue) {
+        window.googlefc.callbackQueue.push({
+          'CONSENT_API_READY': () => window.googlefc.showRevocationMessage()
+        });
+      } else {
+        console.warn("A CMP do Google ainda não está disponível nesta página.");
+      }
     });
 
     document.getElementById("currentYear").textContent = new Date().getFullYear();
