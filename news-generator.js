@@ -114,7 +114,7 @@ export async function runNewsGeneration(env) {
   if (!ai.ok) throw new Error("Groq HTTP " + ai.status + ": " + raw.slice(0, 300));
   const data = JSON.parse(raw);
   const article = JSON.parse(data.choices[0].message.content);
-  const rawCategory = String(article.category || "").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  const rawCategory = String(article.category || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   let category;
   if (/^(inteligencia artificial|ia|artificial intelligence|ai)$/.test(rawCategory)) {
     category = "Inteligência Artificial";
@@ -122,7 +122,7 @@ export async function runNewsGeneration(env) {
     category = "Tecnologia da Informação";
   } else {
     const classificationText = [item.title, item.excerpt, pageText, article.title, article.excerpt, article.body].join(" ").toLowerCase();
-    const aiSignals = /\\b(intelig[eê]ncia artificial|intelig[eê]ncias artificiais|ia generativa|generative ai|artificial intelligence|machine learning|aprendizado de m[aá]quina|deep learning|modelo de linguagem|large language model|\\bllm\\b|chatgpt|gemini|claude|gpt[-\\s]?\\d|copilot|agente de ia|ai agent)\\b/i;
+    const aiSignals = /\b(intelig[eê]ncia artificial|intelig[eê]ncias artificiais|ia generativa|generative ai|artificial intelligence|machine learning|aprendizado de m[aá]quina|deep learning|modelo de linguagem|large language model|\bllm\b|chatgpt|gemini|claude|gpt[-\s]?\d|copilot|agente de ia|ai agent)\b/i;
     category = aiSignals.test(classificationText) ? "Inteligência Artificial" : "Tecnologia da Informação";
   }
   const plain = String(article.body || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/\s+/g, " ").trim();
