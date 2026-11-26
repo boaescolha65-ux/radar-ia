@@ -89,6 +89,11 @@ async function handleAdmin(request, env, headers, pathname) {
     let body;
     try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, headers); }
 
+    if (pathname === "/admin/radar-daily/script") {
+      const script = await generateRadarDailyScript(env);
+      return json({ ok: true, script }, 200, headers);
+    }
+
     // Aplicação explícita e restrita: somente IDs enviados e ainda classificados como IA.
     if (pathname === "/admin/category-audit/apply") {
       if (!Array.isArray(body?.ids) || body.ids.length < 1 || body.ids.length > 500) {
@@ -181,6 +186,7 @@ async function handleSitemap(env) {
   }
 }
 import { runNewsGeneration } from "./news-generator.js";
+import { generateRadarDailyScript } from "./radar-daily.js";
 
 export default {
   async fetch(request, env) {
