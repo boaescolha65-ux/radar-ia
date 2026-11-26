@@ -115,6 +115,23 @@ async function handleAdmin(request, env, headers, pathname) {
     let body;
     try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, headers); }
 
+    if (pathname === "/admin/radar-daily/audio-health") {
+      try {
+        const response = await fetch("https://radar-ia-1.onrender.com/health", {
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(20000)
+        });
+        const raw = await response.text();
+        let status = {};
+        try { status = JSON.parse(raw); } catch {}
+        if (!response.ok) return json({ ok: false, service_status: response.status, error: "Serviço Piper respondeu HTTP " + response.status + ".", details: status }, 502, headers);
+        return json({ ok: true, service_status: response.status, model_loaded: status.model_loaded ?? null, service: status }, 200, headers);
+      } catch (error) {
+        return json({ ok: false, error: "Não foi possível verificar o serviço Piper: " + String(error).slice(0, 180) }, 502, headers);
+      }
+    }
+
     if (pathname === "/admin/radar-daily/audio") {
       const text = typeof body?.text === "string" ? body.text.trim() : "";
       if (!text) return json({ error: "Texto vazio." }, 400, headers);
