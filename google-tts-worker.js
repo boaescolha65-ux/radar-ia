@@ -45,6 +45,32 @@ function authorized(request, env) {
   return Boolean(env.ADMIN_TOKEN && token === "Bearer " + env.ADMIN_TOKEN);
 }
 
+const RADAR_TTS_MAX_TEXT = 1400;
+async function synthesizeRadarAudio(text, env) {
+  if (!env.PIPER_API_KEY) throw new Error("PIPER_API_KEY não configurada no Worker.");
+  if (!text || text.length > RADAR_TTS_MAX_TEXT) throw new Error("Cada trecho de áudio deve conter entre 1 e 1.400 caracteres.");
+  const response = await fetch("https://radar-ia-1.onrender.com/api/tts", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + env.PIPER_API_KEY,
+      "Content-Type": "application/json",
+      "Accept": "audio/wav"
+    },
+    body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout(90000)
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error("Piper indisponível (HTTP " + response.status + "): " + detail.slice(0, 180));
+  }
+  const contentType = response.headers.get("Content-Type") || "";
+  const audio = await response.arrayBuffer();
+  if (!contentType.toLowerCase().includes("audio/wav") || audio.byteLength < 44 || audio.byteLength > 4 * 1024 * 1024) {
+    throw new Error("Piper retornou um WAV inválido ou acima do limite permitido.");
+  }
+  return audio;
+}
+
 async function handleArticles(request, env, headers) {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405, headers);
   if (!env.DB) return json({ error: "D1 binding DB não configurado." }, 503, headers);
@@ -88,6 +114,19 @@ async function handleAdmin(request, env, headers, pathname) {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, headers);
     let body;
     try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, headers); }
+
+    if (pathname === "/admin/radar-daily/audio") {
+      const text = typeof body?.text === "string" ? body.text.trim() : "";
+      if (!text) return json({ error: "Texto vazio." }, 400, headers);
+      if (text.length > RADAR_TTS_MAX_TEXT) return json({ error: "Trecho excede 1.400 caracteres." }, 413, headers);
+      const audio = await synthesizeRadarAudio(text, env);
+      return new Response(audio, { status: 200, headers: {
+        ...headers,
+        "Content-Type": "audio/wav",
+        "Content-Disposition": "attachment; filename=radar-diario-trecho.wav",
+        "Cache-Control": "no-store"
+      }});
+    }
 
     if (pathname === "/admin/radar-daily/script") {
       const script = await generateRadarDailyScript(env);
