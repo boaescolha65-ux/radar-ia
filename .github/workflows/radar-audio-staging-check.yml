@@ -1,0 +1,20 @@
+name: Radar Diário — Worker de homologação
+on:
+  push:
+    branches:
+      - feature/radar-diario-staging
+  pull_request:
+    branches:
+      - main
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar Worker de homologação
+        run: node --check --input-type=module < radar-audio-staging-worker.js
+      - name: Validar configuração Wrangler
+        run: npx --yes wrangler@4 deploy --dry-run --config wrangler.staging.jsonc
