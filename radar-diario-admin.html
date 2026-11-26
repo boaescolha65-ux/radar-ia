@@ -20,19 +20,76 @@
 <p class="muted">O sistema consulta somente notícias com status <strong>published</strong> e categorias exatas <strong>Tecnologia da Informação</strong> ou <strong>Inteligência Artificial</strong>. Não altera nem publica reportagens. A geração usa a chave Groq já configurada no Worker.</p>
 <button id="generate">Gerar roteiro editorial</button> <button id="logout" type="button" style="background:#43536a">Sair</button>
 <div id="message" aria-live="polite"></div>
-<div id="output" class="hidden"><h2>Roteiro gerado</h2><p class="muted">Confira fontes, nomes, datas, fatos e duração antes de gravar ou produzir o vídeo.</p><button id="copy" type="button">Copiar roteiro JSON</button><pre id="script"></pre></div>
+<div id="output" class="hidden"><h2>Roteiro gerado</h2><p class="muted">Confira fontes, nomes, datas, fatos e duração antes de gravar ou produzir o vídeo.</p><button id="copy" type="button">Copiar roteiro JSON</button> <button id="makeAudio" type="button" style="background:#16805d">Gerar narração WAV</button><p id="audioStatus" class="muted" aria-live="polite"></p><audio id="audioPreview" class="hidden" controls style="width:100%"></audio><p><a id="audioDownload" class="hidden" style="color:#8bc5ff" download="o-seu-radar-radar-diario.wav">Baixar narração completa (WAV)</a></p><pre id="script"></pre></div>
 </section>
 </main>
 <script>
 (function(){
 "use strict";
 const API="https://radar-ia-api.boaescolha65.workers.dev";
-let token="";
-const login=document.getElementById("login"),studio=document.getElementById("studio"),message=document.getElementById("message"),generate=document.getElementById("generate"),output=document.getElementById("output"),scriptBox=document.getElementById("script");
+let token="", currentScript=null, audioUrl=null;
+const login=document.getElementById("login"),studio=document.getElementById("studio"),message=document.getElementById("message"),generate=document.getElementById("generate"),output=document.getElementById("output"),scriptBox=document.getElementById("script"),makeAudio=document.getElementById("makeAudio"),audioStatus=document.getElementById("audioStatus"),audioPreview=document.getElementById("audioPreview"),audioDownload=document.getElementById("audioDownload");
 function msg(t,c){message.className="message "+(c||"");message.textContent=t}
 document.getElementById("loginForm").addEventListener("submit",e=>{e.preventDefault();token=document.getElementById("token").value.trim();document.getElementById("token").value="";if(!token)return;login.classList.add("hidden");studio.classList.remove("hidden")});
 document.getElementById("logout").addEventListener("click",()=>{token="";scriptBox.textContent="";output.classList.add("hidden");studio.classList.add("hidden");login.classList.remove("hidden");message.textContent=""});
-generate.addEventListener("click",async()=>{generate.disabled=true;generate.textContent="Gerando roteiro...";output.classList.add("hidden");msg("Selecionando notícias publicadas e preparando a edição...");try{const r=await fetch(API+"/admin/radar-daily/script",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:"{}"});const data=await r.json();if(!r.ok)throw new Error(data.error||"Falha HTTP "+r.status);scriptBox.textContent=JSON.stringify(data.script,null,2);output.classList.remove("hidden");const mins=Math.round((data.script.estimated_duration_seconds||0)/60);msg("Roteiro gerado. "+data.script.stories.length+" notícias · duração estimada: "+mins+" minutos. Faça a revisão editorial antes de produzir.", "success")}catch(e){msg(e.message||"Falha ao gerar roteiro.","error")}finally{generate.disabled=false;generate.textContent="Gerar roteiro editorial"}});
+generate.addEventListener("click",async()=>{generate.disabled=true;generate.textContent="Gerando roteiro...";output.classList.add("hidden");msg("Selecionando notícias publicadas e preparando a edição...");try{const r=await fetch(API+"/admin/radar-daily/script",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:"{}"});const data=await r.json();if(!r.ok)throw new Error(data.error||"Falha HTTP "+r.status);currentScript=data.script;scriptBox.textContent=JSON.stringify(data.script,null,2);output.classList.remove("hidden");makeAudio.disabled=false;audioStatus.textContent="";audioPreview.classList.add("hidden");audioDownload.classList.add("hidden");const mins=Math.round((data.script.estimated_duration_seconds||0)/60);msg("Roteiro gerado. "+data.script.stories.length+" notícias · duração estimada: "+mins+" minutos. Faça a revisão editorial antes de produzir.", "success")}catch(e){msg(e.message||"Falha ao gerar roteiro.","error")}finally{generate.disabled=false;generate.textContent="Gerar roteiro editorial"}});
+function splitNarration(value,max=1300){
+ const sentences=String(value||"").match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[];
+ const chunks=[];let current="";
+ for(const raw of sentences){let part=raw.trim();if(!part)continue;
+  while(part.length>max){let cut=part.lastIndexOf(" ",max);if(cut<1)cut=max;const piece=part.slice(0,cut).trim();if(piece)chunks.push(piece);part=part.slice(cut).trim()}
+  if(current && (current.length+1+part.length)>max){chunks.push(current);current=part}else current+=(current?" ":"")+part;
+ }
+ if(current)chunks.push(current);
+ return chunks;
+}
+function wavData(buffer){
+ const view=new DataView(buffer);if(view.getUint32(0,false)!==0x52494646||view.getUint32(8,false)!==0x57415645)throw new Error("O Piper retornou um arquivo WAV inválido.");
+ let offset=12,fmt=null,data=null;
+ while(offset+8<=view.byteLength){const id=view.getUint32(offset,false),size=view.getUint32(offset+4,true),start=offset+8;if(start+size>view.byteLength)throw new Error("Arquivo WAV truncado.");
+  if(id===0x666d7420)fmt={format:view.getUint16(start,true),channels:view.getUint16(start+2,true),rate:view.getUint32(start+4,true),bits:view.getUint16(start+14,true)};
+  if(id===0x64617461)data=new Uint8Array(buffer,start,size);
+  offset=start+size+(size%2);
+ }
+ if(!fmt||!data||fmt.format!==1||fmt.bits!==16)throw new Error("Formato WAV do Piper incompatível. Esperado PCM 16-bit.");
+ return {fmt,data};
+}
+function mergeWavs(buffers){
+ const parsed=buffers.map(wavData),first=parsed[0];if(!first)throw new Error("Nenhum áudio foi gerado.");
+ for(const item of parsed){if(item.fmt.channels!==first.fmt.channels||item.fmt.rate!==first.fmt.rate||item.fmt.bits!==first.fmt.bits||item.fmt.format!==first.fmt.format)throw new Error("Os trechos de áudio têm formatos diferentes e não podem ser unidos.")}
+ const total=parsed.reduce((n,x)=>n+x.data.length,0),out=new ArrayBuffer(44+total),v=new DataView(out);
+ const ascii=(p,s)=>{for(let i=0;i<s.length;i++)v.setUint8(p+i,s.charCodeAt(i))};
+ ascii(0,"RIFF");v.setUint32(4,36+total,true);ascii(8,"WAVE");ascii(12,"fmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,first.fmt.channels,true);v.setUint32(24,first.fmt.rate,true);v.setUint32(28,first.fmt.rate*first.fmt.channels*2,true);v.setUint16(32,first.fmt.channels*2,true);v.setUint16(34,16,true);ascii(36,"data");v.setUint32(40,total,true);
+ let pos=44;for(const item of parsed){new Uint8Array(out,pos,item.data.length).set(item.data);pos+=item.data.length}
+ return new Blob([out],{type:"audio/wav"});
+}
+function buildProgramSegments(s){
+ const segments=[];if(s.opening)segments.push({label:"Abertura",text:s.opening});
+ for(const h of (s.headlines||[])){const story=(s.stories||[]).find(x=>x.article_id===h.article_id);segments.push({label:"Manchete: "+(h.headline||story?.headline||""),text:[h.headline,h.teaser].filter(Boolean).join(". ")})}
+ for(const story of (s.stories||[]))segments.push({label:story.category+" — "+story.headline,text:story.narration});
+ if(s.closing)segments.push({label:"Encerramento",text:s.closing});
+ return segments.filter(x=>x.text&&x.text.trim());
+}
+makeAudio.addEventListener("click",async()=>{
+ if(!currentScript)return;makeAudio.disabled=true;audioPreview.classList.add("hidden");audioDownload.classList.add("hidden");
+ if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=null;
+ const chunks=buildProgramSegments(currentScript).flatMap(segment=>splitNarration(segment.text).map(text=>({label:segment.label,text})));
+ if(!chunks.length){audioStatus.textContent="O roteiro não contém texto para narrar.";makeAudio.disabled=false;return}
+ const buffers=[];
+ try{
+  for(let i=0;i<chunks.length;i++){
+   audioStatus.textContent="Gerando áudio "+(i+1)+" de "+chunks.length+" — "+chunks[i].label;
+   const response=await fetch(API+"/admin/radar-daily/audio",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({text:chunks[i].text})});
+   if(!response.ok){let data={};try{data=await response.json()}catch{}throw new Error(data.error||"Falha no Piper (HTTP "+response.status+").")}
+   buffers.push(await response.arrayBuffer());
+  }
+  audioStatus.textContent="Unindo trechos e preparando o arquivo final...";
+  const blob=mergeWavs(buffers);audioUrl=URL.createObjectURL(blob);audioPreview.src=audioUrl;audioPreview.classList.remove("hidden");audioDownload.href=audioUrl;audioDownload.classList.remove("hidden");
+  audioStatus.textContent="Narração completa gerada. "+chunks.length+" trechos · "+(blob.size/1024/1024).toFixed(1)+" MB. Ouça e revise antes da montagem do vídeo.";
+  msg("Áudio gerado com Piper. A publicação continua manual e depende de revisão editorial.","success");
+ }catch(e){audioStatus.textContent=e.message||"Não foi possível gerar a narração.";msg(audioStatus.textContent,"error")}
+ finally{makeAudio.disabled=false}
+});
 document.getElementById("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(scriptBox.textContent);msg("Roteiro copiado.","success")}catch(e){msg("Não foi possível copiar automaticamente. Selecione o texto do roteiro.","error")}});
 })();
 </script>
