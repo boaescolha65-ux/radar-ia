@@ -1,0 +1,32 @@
+name: Radar Diário — validação
+on:
+  push:
+    branches:
+      - feature/radar-diario-script
+  pull_request:
+    branches:
+      - main
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar módulos JavaScript
+        run: |
+          node --check --input-type=module < google-tts-worker.js
+          node --check --input-type=module < radar-daily.js
+      - name: Validar JavaScript embutido no estúdio
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("radar-diario-admin.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>([\s\S]*?)</script>", html)
+          if not scripts:
+              raise SystemExit("Nenhum script encontrado no estúdio.")
+          Path("/tmp/radar-diario-admin.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+          node --check --input-type=module < /tmp/radar-diario-admin.js
