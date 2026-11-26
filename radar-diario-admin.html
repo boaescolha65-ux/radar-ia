@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Radar Diário — Produção | O Seu Radar</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:22px;background:#0b1220;color:#e5edf8;font-family:Arial,sans-serif}main{max-width:980px;margin:auto}.panel{background:#121e31;border:1px solid #263750;border-radius:14px;padding:20px;margin:16px 0}h1,h2{margin-top:0}.muted{color:#a9b8cc;line-height:1.55}label{display:block;font-weight:bold;margin:10px 0}input,textarea{width:100%;padding:12px;border:1px solid #38506d;border-radius:8px;background:#0b1628;color:#fff;font:inherit}button{padding:12px 16px;border:0;border-radius:8px;background:#1d76d2;color:white;font-weight:bold;cursor:pointer}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#08111f;border:1px solid #263750;padding:16px;border-radius:8px;max-height:65vh;overflow:auto}.message{padding:12px;border-radius:8px;margin:12px 0}.error{background:#4a2027;color:#ffdce0}.success{background:#173d32;color:#d6ffeb}.hidden{display:none}@media(max-width:600px){body{padding:12px}.panel{padding:15px}}
+</style>
+</head>
+<body><main>
+<header><h1>O Seu Radar — Radar Diário</h1><p class="muted">Estúdio editorial · Geração de roteiro com notícias já publicadas nas categorias TI e IA.</p></header>
+<section class="panel" id="login">
+<h2>Acesso administrativo</h2><p class="muted">Use o mesmo ADMIN_TOKEN do painel do site. O token fica apenas na memória desta página e não é salvo.</p>
+<form id="loginForm"><label for="token">ADMIN_TOKEN</label><input id="token" type="password" autocomplete="off" required><p><button type="submit">Acessar estúdio</button></p></form>
+</section>
+<section class="panel hidden" id="studio">
+<h2>Produzir roteiro da edição</h2>
+<p class="muted">O sistema consulta somente notícias com status <strong>published</strong> e categorias exatas <strong>Tecnologia da Informação</strong> ou <strong>Inteligência Artificial</strong>. Não altera nem publica reportagens. A geração usa a chave Groq já configurada no Worker.</p>
+<button id="generate">Gerar roteiro editorial</button> <button id="logout" type="button" style="background:#43536a">Sair</button>
+<div id="message" aria-live="polite"></div>
+<div id="output" class="hidden"><h2>Roteiro gerado</h2><p class="muted">Confira fontes, nomes, datas, fatos e duração antes de gravar ou produzir o vídeo.</p><button id="copy" type="button">Copiar roteiro JSON</button><pre id="script"></pre></div>
+</section>
+</main>
+<script>
+(function(){
+"use strict";
+const API="https://radar-ia-api.boaescolha65.workers.dev";
+let token="";
+const login=document.getElementById("login"),studio=document.getElementById("studio"),message=document.getElementById("message"),generate=document.getElementById("generate"),output=document.getElementById("output"),scriptBox=document.getElementById("script");
+function msg(t,c){message.className="message "+(c||"");message.textContent=t}
+document.getElementById("loginForm").addEventListener("submit",e=>{e.preventDefault();token=document.getElementById("token").value.trim();document.getElementById("token").value="";if(!token)return;login.classList.add("hidden");studio.classList.remove("hidden")});
+document.getElementById("logout").addEventListener("click",()=>{token="";scriptBox.textContent="";output.classList.add("hidden");studio.classList.add("hidden");login.classList.remove("hidden");message.textContent=""});
+generate.addEventListener("click",async()=>{generate.disabled=true;generate.textContent="Gerando roteiro...";output.classList.add("hidden");msg("Selecionando notícias publicadas e preparando a edição...");try{const r=await fetch(API+"/admin/radar-daily/script",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:"{}"});const data=await r.json();if(!r.ok)throw new Error(data.error||"Falha HTTP "+r.status);scriptBox.textContent=JSON.stringify(data.script,null,2);output.classList.remove("hidden");const mins=Math.round((data.script.estimated_duration_seconds||0)/60);msg("Roteiro gerado. "+data.script.stories.length+" notícias · duração estimada: "+mins+" minutos. Faça a revisão editorial antes de produzir.", "success")}catch(e){msg(e.message||"Falha ao gerar roteiro.","error")}finally{generate.disabled=false;generate.textContent="Gerar roteiro editorial"}});
+document.getElementById("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(scriptBox.textContent);msg("Roteiro copiado.","success")}catch(e){msg("Não foi possível copiar automaticamente. Selecione o texto do roteiro.","error")}});
+})();
+</script>
+</body></html>
