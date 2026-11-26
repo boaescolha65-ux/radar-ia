@@ -4,7 +4,7 @@
  * Não altera notícias nem publica conteúdo no site.
  */
 const ALLOWED_CATEGORIES = ["Tecnologia da Informação", "Inteligência Artificial"];
-const countWords = value => String(value || "").trim().split(/\\s+/).filter(Boolean).length;
+const countWords = value => String(value || "").trim().split(/\s+/).filter(Boolean).length;
 const secondsFor = words => Math.ceil((words / 135) * 60);
 
 export async function generateRadarDailyScript(env) {
@@ -45,7 +45,7 @@ export async function generateRadarDailyScript(env) {
     'Retorne SOMENTE JSON válido no formato: {"program_title":"...","edition_date":"YYYY-MM-DD","opening":"...","headlines":[{"article_id":123,"category":"...","headline":"...","teaser":"..."}],"stories":[{"article_id":123,"category":"...","headline":"...","narration":"...","duration_seconds":90}],"closing":"...","editorial_notes":["..."]}.',
     "Use apenas article_id existentes na lista. Não repita article_id. Cada story deve corresponder a uma notícia da lista. Escreva a locução com extensão compatível com 130 a 145 palavras por minuto. Não estime duração arbitrariamente.",
     "Data de referência: " + new Date().toISOString().slice(0, 10) + "."
-  ].join("\\n");
+  ].join("\n");
 
   const response = await fetch(env.AI_API_URL || "https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -57,7 +57,7 @@ export async function generateRadarDailyScript(env) {
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: prompt },
-        { role: "user", content: "Notícias candidatas (todas publicadas e já aprovadas no D1):\\n" + JSON.stringify(articles) }
+        { role: "user", content: "Notícias candidatas (todas publicadas e já aprovadas no D1):\n" + JSON.stringify(articles) }
       ]
     })
   });
