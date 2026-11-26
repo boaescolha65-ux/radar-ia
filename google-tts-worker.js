@@ -136,7 +136,12 @@ async function handleAdmin(request, env, headers, pathname) {
       const text = typeof body?.text === "string" ? body.text.trim() : "";
       if (!text) return json({ error: "Texto vazio." }, 400, headers);
       if (text.length > RADAR_TTS_MAX_TEXT) return json({ error: "Trecho excede 1.400 caracteres." }, 413, headers);
-      const audio = await synthesizeRadarAudio(text, env);
+      let audio;
+      try { audio = await synthesizeRadarAudio(text, env); }
+      catch (error) {
+        console.error("[RADAR TTS] falha na síntese:", String(error));
+        return json({ error: String(error?.message || "Falha ao gerar áudio Piper.").slice(0, 300) }, 502, headers);
+      }
       return new Response(audio, { status: 200, headers: {
         ...headers,
         "Content-Type": "audio/wav",
