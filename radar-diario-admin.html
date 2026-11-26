@@ -36,7 +36,7 @@ generate.addEventListener("click",async()=>{generate.disabled=true;generate.text
 checkPiper.addEventListener("click",async()=>{
  checkPiper.disabled=true;audioStatus.textContent="Verificando disponibilidade do Piper e carregamento do modelo...";
  try{
-  const r=await fetch(API+"/admin/radar-daily/audio-health",{method:"GET",headers:{"Authorization":"Bearer "+token}});
+  const r=await fetch(API+"/admin/radar-daily/audio-health",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:"{}"});
   const data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||"Serviço Piper indisponível.");
   audioStatus.textContent=data.model_loaded===true?"Piper disponível e modelo de voz carregado.":data.model_loaded===false?"Piper respondeu, mas o modelo ainda não está carregado. Aguarde e teste novamente.":"Piper respondeu; estado do modelo não informado pelo serviço.";
   msg(audioStatus.textContent,data.model_loaded===true?"success":"");
