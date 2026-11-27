@@ -136,13 +136,14 @@ def commons(query,dest):
   for p in pages.values():
    info=(p.get("imageinfo") or [{}])[0]; meta=info.get("extmetadata",{})
    lic=BeautifulSoup(meta.get("LicenseShortName",{}).get("value",""),"html.parser").get_text(" ",strip=True)
-   if not any(x in lic.lower() for x in ("cc0","public domain","cc by","cc-by")):continue
+   license_text=lic.lower()
+   if not ("cc0" in license_text or "public domain" in license_text or ("cc by" in license_text and "sa" not in license_text)):continue
    url=info.get("thumburl") or info.get("url")
    if not url:continue
    data=get(url).content
    if len(data)<4000:continue
    dest.write_bytes(data)
-   return {"file":dest.name,"source":"Wikimedia Commons","license":lic,"artist":BeautifulSoup(meta.get("Artist",{}).get("value",""),"html.parser").get_text(" ",strip=True)[:250],"credit_url":info.get("descriptionurl","")}
+   return {"file":dest.name,"title":p.get("title",""),"source":"Wikimedia Commons","license":lic,"license_url":BeautifulSoup(meta.get("LicenseUrl",{}).get("value",""),"html.parser").get_text(" ",strip=True),"artist":BeautifulSoup(meta.get("Artist",{}).get("value",""),"html.parser").get_text(" ",strip=True)[:250],"credit_url":info.get("descriptionurl",""),"changes":"Convertida para JPEG; sem edição do conteúdo visual."}
  except Exception as e:print("[commons]",e,file=sys.stderr)
  return None
 
