@@ -132,8 +132,28 @@ Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exat
   return json.loads(raw)
  byurl={x["url"]:x for x in items}
  def validate(script):
+  if isinstance(script,list):
+   if len(script)==1 and isinstance(script[0],dict):
+    script=script[0]
+   else:
+    raise RuntimeError("Gemini retornou uma lista na raiz do JSON; era esperado um objeto com opening, stories e closing.")
+  if not isinstance(script,dict):
+   raise RuntimeError(f"Gemini retornou {type(script).__name__} na raiz do JSON; era esperado um objeto.")
+  raw_stories=script.get("stories",[])
+  if not isinstance(raw_stories,list):
+   raise RuntimeError("Formato inválido no roteiro: o campo stories precisa ser uma lista.")
+  normalized_stories=[]
+  for index,st in enumerate(raw_stories,1):
+   if isinstance(st,dict):
+    normalized_stories.append(st)
+   elif isinstance(st,list) and all(isinstance(item,dict) for item in st):
+    print(f"[Gemini] Matéria {index}: lista aninhada de objetos detectada; itens expandidos.")
+    normalized_stories.extend(st)
+   else:
+    raise RuntimeError(f"Formato inválido na matéria {index}: esperado objeto JSON, recebido {type(st).__name__}.")
+  script["stories"]=normalized_stories
   used=set(); stories=[]
-  for st in script.get("stories",[]):
+  for index,st in enumerate(script["stories"],1):
    url=st.get("source_url",""); src=byurl.get(url); narration=str(st.get("narration","")).strip(); words=len(narration.split())
    if not src or url in used or words<130:continue
    used.add(url); st.update({"source_url":url,"source_name":src["source"],"article_title":src["title"],"published":src["published"],"headline":str(st.get("headline") or src["title"])[:150],"word_count":words})
