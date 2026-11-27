@@ -57,7 +57,14 @@ def feeds():
 def read_feed(source,url,cutoff):
  out=[]
  try:
-  root=ET.fromstring(get(url).content)
+  payload=get(url).content
+  try:root=ET.fromstring(payload)
+  except ET.ParseError:
+   text=payload.decode("utf-8",errors="replace")
+   text=re.sub(r"&(?!#\\d+;|#x[0-9a-fA-F]+;|[A-Za-z][\\w.-]*;)","&amp;",text)
+   text=re.sub(r"[^\\x09\\x0A\\x0D\\x20-\\uD7FF\\uE000-\\uFFFD\\U00010000-\\U0010FFFF]","",text)
+   root=ET.fromstring(text)
+   print(f"[feed] {source}: XML recuperado após normalização de caracteres inválidos.",file=sys.stderr)
   for item in root.findall(".//item"):
    title=node_text(item,["title"]); link=node_text(item,["link"])
    desc=node_text(item,["description","{http://purl.org/rss/1.0/modules/content/}encoded"])
