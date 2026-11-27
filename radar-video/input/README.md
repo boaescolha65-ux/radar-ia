@@ -1,16 +1,37 @@
-# Arquivos de entrada do Radar Diário
+# Produção automática do Radar Diário
 
-Antes de executar o workflow **Radar Diário — produção de vídeo**, coloque nesta estrutura:
+A edição não exige WAV nem imagens fornecidos manualmente. O workflow **Radar Diário — produção automática do telejornal** coleta notícias recentes, gera o roteiro com Gemini, busca imagens reutilizáveis no Wikimedia Commons (ou cria artes ilustrativas quando não encontra imagem compatível), produz a narração pelo Piper TTS existente e monta o MP4 com FFmpeg.
 
-- `audio.wav`: narração completa, já revisada e aprovada, em WAV.
-- `images/`: imagens autorizadas para a edição, em JPG, JPEG, PNG ou WebP.
+## Configuração necessária — uma única vez
 
-## Importante
+No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret** e cadastre:
 
-1. Não coloque chaves, tokens ou credenciais nesta pasta.
-2. Use apenas áudio e imagens que você tenha autorização para utilizar.
-3. Nomeie as imagens em ordem de exibição, por exemplo: `01-abertura.jpg`, `02-noticia.jpg`, `03-analise.jpg`.
-4. O workflow atual distribui as imagens igualmente ao longo da duração do áudio.
-5. O vídeo gerado é apenas um artefato para revisão; não há publicação automática no YouTube.
+- `GEMINI_API_KEY`: chave criada no Google AI Studio.
+- `PIPER_API_KEY`: a mesma credencial já usada pelo serviço Piper do Radar, sem publicá-la no repositório.
 
-O arquivo WAV e as imagens não foram incluídos neste commit. Eles precisam ser adicionados antes do primeiro teste.
+Não cole as chaves em arquivos, issues ou mensagens. O endereço do Piper já está configurado no workflow.
+
+Opcionalmente, em **Variables**, pode definir `GEMINI_MODEL`; por padrão o fluxo usa `gemini-3.6-flash`.
+
+## Como executar
+
+1. Abra a aba **Actions** do repositório.
+2. Escolha **Radar Diário — produção automática do telejornal**.
+3. Clique em **Run workflow**.
+4. Mantenha a janela de 36 horas e o limite de 40 notícias na primeira execução.
+5. Aguarde a geração do artefato e baixe a edição para revisão.
+
+O artefato inclui MP4, WAV, roteiro em JSON e texto, fontes das notícias e créditos/licenças das imagens. Os artefatos ficam disponíveis por 7 dias.
+
+## Regras editoriais e de segurança
+
+- O foco é exclusivamente Tecnologia da Informação e Inteligência Artificial.
+- São necessárias de 6 a 8 notícias recentes, com fontes e URLs preservadas.
+- O roteiro deve passar pela validação de extensão antes de gerar o áudio.
+- Imagens do Wikimedia Commons só são usadas quando a licença identificada é CC0, domínio público ou CC BY; os créditos são registrados. Quando não há imagem adequada, é criada uma arte identificada como ilustrativa.
+- A narração é produzida em partes pelo Piper, respeitando o limite de caracteres por requisição.
+- A execução é manual. Não há publicação automática no YouTube.
+- O roteiro, áudio e vídeo são materiais de prévia e precisam de aprovação editorial humana.
+- Nenhuma chave deve ser armazenada nesta pasta ou em qualquer arquivo do Git.
+
+Os arquivos de áudio e imagens são gerados durante a execução e não precisam ser enviados ao repositório.
