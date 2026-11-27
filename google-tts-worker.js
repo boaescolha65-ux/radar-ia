@@ -225,8 +225,13 @@ async function handleAdmin(request, env, headers, pathname) {
     }
     return json({ error: "Rota administrativa não encontrada." }, 404, headers);
   } catch (error) {
-    console.error("Admin API error:", error);
-    return json({ error: "Falha ao executar operação administrativa no D1. Verifique o schema da tabela articles." }, 500, headers);
+    console.error("Admin API error:", JSON.stringify({
+      name: error?.name || "Error",
+      message: error?.message || String(error),
+      stack: error?.stack || null,
+      path: pathname
+    }));
+    return json({ error: "Falha ao executar operação administrativa. Consulte os logs do Worker para obter o diagnóstico." }, 500, headers);
   }
 }
 async function handleSitemap(env) {
