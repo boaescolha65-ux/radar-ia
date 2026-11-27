@@ -205,7 +205,7 @@ def render_shorts(images, audio, duration, output, work_dir, headline,
             next_label = f"transition{index}"
             offset = index * (clip_duration - overlap)
             filters.append(
-                f"[{current}][scene{index}]xfade=transition= smoothleft:"
+                f"[{current}][scene{index}]xfade=transition=smoothleft:"
                 f"duration={overlap}:offset={offset:.4f}[{next_label}]"
             )
             current = next_label
