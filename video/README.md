@@ -8,7 +8,9 @@ Este diretório contém o manifesto de entrada e as instruções para a montagem
 2. Uma imagem para cada notícia, em JPG ou PNG.
 3. Um manifesto JSON baseado em `manifest.example.json`.
 
-Por padrão, os arquivos de entrada ficam em `video/input/`. Essa pasta não precisa ser versionada com materiais reais; coloque nela os arquivos da edição que será produzida.
+**Atenção: o repositório `radar-ia` é público.** Qualquer áudio, imagem ou manifesto enviado por commit ficará publicamente acessível. Não coloque aqui narração inédita, dados privados ou material que ainda não possa ser divulgado. Esta primeira versão só processa arquivos já presentes no checkout; uma entrada privada de mídia precisa ser definida antes de usar material editorial não publicado.
+
+Por padrão, os caminhos de entrada ficam em `video/input/`. Os arquivos reais precisam estar presentes no checkout quando o workflow for executado.
 
 ## Manifesto
 
