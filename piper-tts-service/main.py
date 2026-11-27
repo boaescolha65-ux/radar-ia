@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import hashlib
 import hmac
 import json
 import os
@@ -65,6 +66,8 @@ async def lifespan(app: FastAPI):
         providers=["CPUExecutionProvider"],
     )
     _voice = PiperVoice(config=config, session=session)
+    key_fingerprint = hashlib.sha256(API_KEY.encode("utf-8")).hexdigest() if API_KEY else "MISSING"
+    print(f"PIPER_API_KEY_SHA256={key_fingerprint}")
     print(
         f"Piper pronto: {VOICE_NAME}; "
         f"load_seconds={time.monotonic() - started:.1f}; "
