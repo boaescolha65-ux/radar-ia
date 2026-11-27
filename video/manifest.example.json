@@ -1,0 +1,31 @@
+{
+  "title": "Radar Diário",
+  "date": "2026-11-27",
+  "audio": "video/input/narracao.wav",
+  "segments": [
+    {
+      "title": "Manchete principal",
+      "image": "video/input/noticia-01.jpg"
+    },
+    {
+      "title": "Segunda notícia",
+      "image": "video/input/noticia-02.jpg"
+    },
+    {
+      "title": "Terceira notícia",
+      "image": "video/input/noticia-03.jpg"
+    },
+    {
+      "title": "Quarta notícia",
+      "image": "video/input/noticia-04.jpg"
+    },
+    {
+      "title": "Quinta notícia",
+      "image": "video/input/noticia-05.jpg"
+    },
+    {
+      "title": "Sexta notícia",
+      "image": "video/input/noticia-06.jpg"
+    }
+  ]
+}
