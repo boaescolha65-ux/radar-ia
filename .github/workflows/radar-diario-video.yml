@@ -1,0 +1,66 @@
+name: Radar Diário — produção de vídeo
+
+on:
+  workflow_dispatch:
+    inputs:
+      audio_path:
+        description: "Caminho do WAV aprovado dentro do repositório"
+        required: true
+        default: "radar-video/input/audio.wav"
+        type: string
+      images_dir:
+        description: "Pasta com imagens JPG, PNG ou WebP"
+        required: true
+        default: "radar-video/input/images"
+        type: string
+      headline:
+        description: "Manchete para a tarja do vídeo"
+        required: true
+        type: string
+      edition_date:
+        description: "Data da edição (AAAA-MM-DD)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radar-diario-video
+  cancel-in-progress: false
+
+jobs:
+  render:
+    name: Montar vídeo com FFmpeg
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Baixar arquivos do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar FFmpeg e fonte
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Montar MP4
+        run: |
+          python scripts/render_radar_video.py \
+            --audio "${{ inputs.audio_path }}" \
+            --images "${{ inputs.images_dir }}" \
+            --headline "${{ inputs.headline }}" \
+            --date "${{ inputs.edition_date }}" \
+            --output-dir output
+
+      - name: Disponibilizar vídeo para revisão
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-diario-video-${{ inputs.edition_date }}
+          path: output/radar-diario-${{ inputs.edition_date }}.mp4
+          if-no-files-found: error
+          retention-days: 7
