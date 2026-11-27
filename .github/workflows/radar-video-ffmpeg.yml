@@ -1,0 +1,50 @@
+name: Radar Diário — produção de vídeo
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_path:
+        description: "Caminho do manifesto JSON"
+        required: true
+        default: "video/manifest.json"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    name: Montar vídeo com FFmpeg
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar FFmpeg e fontes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Verificar ferramentas
+        run: |
+          ffmpeg -version
+          ffprobe -version
+          python3 --version
+          python3 -m py_compile scripts/build-radar-video.py
+
+      - name: Montar telejornal
+        env:
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
+          python3 scripts/build-radar-video.py \
+            --manifest "$MANIFEST_PATH" \
+            --output output/radar-diario.mp4
+
+      - name: Disponibilizar vídeo para revisão
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-diario-video
+          path: output/radar-diario.mp4
+          if-no-files-found: error
+          retention-days: 7
