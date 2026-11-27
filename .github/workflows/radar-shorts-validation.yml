@@ -1,0 +1,41 @@
+name: Shorts — validação de qualidade
+
+on:
+  push:
+    branches:
+      - feature/shorts-qualidade-editorial
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Sintaxe e renderização vertical
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Python, FFmpeg e fontes
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          pip install pillow
+
+      - name: Validar sintaxe Python
+        run: |
+          python -m py_compile \
+            scripts/produce_radar_edition.py \
+            scripts/render_radar_video.py \
+            scripts/test_shorts_render.py
+
+      - name: Testar vídeo vertical com duas cenas
+        run: python scripts/test_shorts_render.py

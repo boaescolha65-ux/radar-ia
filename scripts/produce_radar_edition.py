@@ -177,37 +177,93 @@ Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exat
  print(f"[Gemini] Roteiro validado: {words} palavras, estimativa de {script['estimated_minutes']} minutos.")
  return script
 
-def commons(query,dest):
- params={"action":"query","generator":"search","gsrsearch":query+" filetype:bitmap","gsrnamespace":6,"gsrlimit":8,"prop":"imageinfo","iiprop":"url|extmetadata","iiurlwidth":1600,"format":"json"}
- try:
-  pages=get("https://commons.wikimedia.org/w/api.php",params=params).json().get("query",{}).get("pages",{})
-  for p in pages.values():
-   info=(p.get("imageinfo") or [{}])[0]; meta=info.get("extmetadata",{})
-   lic=BeautifulSoup(meta.get("LicenseShortName",{}).get("value",""),"html.parser").get_text(" ",strip=True)
-   license_text=lic.lower()
-   if not ("cc0" in license_text or "public domain" in license_text or ("cc by" in license_text and "sa" not in license_text)):continue
-   url=info.get("thumburl") or info.get("url")
-   if not url:continue
-   data=get(url).content
-   if len(data)<4000:continue
-   dest.write_bytes(data)
-   return {"file":dest.name,"title":p.get("title",""),"source":"Wikimedia Commons","license":lic,"license_url":BeautifulSoup(meta.get("LicenseUrl",{}).get("value",""),"html.parser").get_text(" ",strip=True),"artist":BeautifulSoup(meta.get("Artist",{}).get("value",""),"html.parser").get_text(" ",strip=True)[:250],"credit_url":info.get("descriptionurl",""),"changes":"Convertida para JPEG; sem edição do conteúdo visual."}
- except Exception as e:print("[commons]",e,file=sys.stderr)
- return None
+def commons_gallery(query, headline, destdir, max_images=4):
+ """Baixa imagens distintas do Commons com licenças permitidas e registra créditos."""
+ queries=[]
+ for term in (query, headline, query+" technology"):
+  term=re.sub(r"\s+"," ",str(term or "")).strip()
+  if term and term.lower() not in [x.lower() for x in queries]:queries.append(term)
+ credits=[]; seen=set()
+ for term in queries:
+  if len(credits)>=max_images:break
+  params={"action":"query","generator":"search","gsrsearch":term+" filetype:bitmap","gsrnamespace":6,"gsrlimit":12,"prop":"imageinfo","iiprop":"url|extmetadata","iiurlwidth":1600,"format":"json"}
+  try:
+   pages=get("https://commons.wikimedia.org/w/api.php",params=params).json().get("query",{}).get("pages",{})
+   for page in pages.values():
+    title=page.get("title","")
+    if not title or title in seen:continue
+    info=(page.get("imageinfo") or [{}])[0]; meta=info.get("extmetadata",{})
+    lic=BeautifulSoup(meta.get("LicenseShortName",{}).get("value",""),"html.parser").get_text(" ",strip=True)
+    low=lic.lower()
+    if not ("cc0" in low or "public domain" in low or ("cc by" in low and "sa" not in low)):continue
+    url=info.get("thumburl") or info.get("url")
+    if not url:continue
+    try:
+     data=get(url).content
+     if len(data)<4000:continue
+     im=Image.open(BytesIO(data)).convert("RGB")
+     if im.width<500 or im.height<300:continue
+     filename=f"{len(credits)+1:02d}.jpg"; dest=destdir/filename
+     im.save(dest,"JPEG",quality=92,optimize=True)
+    except Exception as exc:
+     print("[commons] imagem ignorada:",exc,file=sys.stderr);continue
+    seen.add(title)
+    credits.append({"file":filename,"title":title,"source":"Wikimedia Commons","license":lic,
+     "license_url":BeautifulSoup(meta.get("LicenseUrl",{}).get("value",""),"html.parser").get_text(" ",strip=True),
+     "artist":BeautifulSoup(meta.get("Artist",{}).get("value",""),"html.parser").get_text(" ",strip=True)[:250],
+     "credit_url":info.get("descriptionurl",""),"changes":"Miniatura convertida para JPEG; conteúdo visual preservado."})
+    if len(credits)>=max_images:break
+  except Exception as exc:print("[commons]",term,exc,file=sys.stderr)
+ return credits
 
-def placeholder(dest,title,index):
- im=Image.new("RGB",(1600,900),(12,28,42)); d=ImageDraw.Draw(im)
- f=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",58); sm=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",28)
- d.rectangle((0,0,1600,18),fill=(0,170,190)); d.text((90,100),"O SEU RADAR  /  RADAR DIÁRIO",font=sm,fill=(80,210,220))
- lines=[]; line=""
- for word in title.split():
+def illustration_card(dest, headline, label):
+ """Arte editorial original; não representa uma fotografia nem um acontecimento real."""
+ w,h=1600,900
+ im=Image.new("RGB",(w,h)); px=im.load()
+ for y in range(h):
+  for x in range(w):
+   glow=max(0,1-(((x-1250)/900)**2+((y-180)/650)**2)**0.5)
+   px[x,y]=(int(7+9*glow),int(20+35*glow),int(36+55*glow))
+ d=ImageDraw.Draw(im)
+ cyan=(25,205,220); white=(246,249,252); muted=(160,190,205)
+ d.rectangle((0,0,w,16),fill=cyan)
+ for x in range(1040,1540,95):
+  d.line((x,90,x-160,810),fill=(20,75,100),width=3)
+ for y in range(180,780,100):
+  d.line((900,y,1570,y),fill=(18,58,82),width=2)
+ d.rounded_rectangle((90,95,620,158),radius=18,fill=(9,45,65),outline=cyan,width=2)
+ font_small=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",28)
+ d.text((120,108),"O SEU RADAR  /  TECNOLOGIA & IA",font=font_small,fill=cyan)
+ font=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",62)
+ words=headline.split(); lines=[]; line=""
+ for word in words:
   test=(line+" "+word).strip()
-  if d.textbbox((0,0),test,font=f)[2]>1400 and line:lines.append(line);line=word
+  if d.textbbox((0,0),test,font=font)[2]>1320 and line:lines.append(line);line=word
   else:line=test
  if line:lines.append(line)
- y=330-len(lines)*40
- for line in lines[:5]:d.text((90,y),line,font=f,fill="white");y+=82
- d.text((90,790),f"IMAGEM ILUSTRATIVA • PAUTA {index:02d}",font=sm,fill=(160,185,198));im.save(dest,quality=92)
+ y=300
+ for line in lines[:4]:
+  d.text((95,y),line,font=font,fill=white,stroke_width=1,stroke_fill=(0,0,0));y+=88
+ d.rounded_rectangle((95,760,650,825),radius=16,fill=(7,95,115))
+ d.text((125,777),label.upper()+"  •  ARTE ILUSTRATIVA",font=font_small,fill=white)
+ im.save(dest,"JPEG",quality=92,optimize=True)
+
+def prepare_visuals(story, destdir):
+ credits=commons_gallery(story.get("image_query") or story["headline"],story["headline"],destdir,4)
+ # Uma lâmina editorial complementar evita repetir a mesma fotografia quando há poucas imagens.
+ if len(credits)<3:
+  label="Contexto da notícia" if credits else "Ilustração editorial"
+  dest=destdir/f"{len(credits)+1:02d}-arte.jpg"
+  illustration_card(dest,story["headline"],label)
+  credits.append({"file":dest.name,"title":story["headline"],"source":"Arte ilustrativa original do O Seu Radar",
+   "license":"Arte original gerada por código; não é fotografia documental.","license_url":"","artist":"O Seu Radar",
+   "credit_url":"","changes":"Composição gráfica original identificada como ilustrativa."})
+ if len(credits)==1:
+  dest=destdir/"02-arte.jpg";illustration_card(dest,story["headline"],"Resumo visual")
+  credits.append({"file":dest.name,"title":story["headline"],"source":"Arte ilustrativa original do O Seu Radar",
+   "license":"Arte original gerada por código; não é fotografia documental.","license_url":"","artist":"O Seu Radar",
+   "credit_url":"","changes":"Composição gráfica original identificada como ilustrativa."})
+ return credits
 
 def chunks(text,limit=1250):
  parts=re.split(r"(?<=[.!?])\s+",re.sub(r"\s+"," ",text.strip())); out=[]; cur=""
@@ -226,22 +282,49 @@ def piper(script,out,short=False):
  key=os.getenv("PIPER_API_KEY")
  if not key:raise RuntimeError("Configure PIPER_API_KEY nos Secrets do GitHub.")
  endpoint=os.getenv("PIPER_API_URL","https://radar-ia-1.onrender.com/api/tts")
- text="\n\n".join([script.get("opening","")]+[x["headline"]+". "+x["narration"] for x in script["stories"]]+[script.get("closing","")])
- parts=chunks(text,limit=900 if short else 1250); files=[]
- if short and len(parts)!=1:raise RuntimeError(f"Roteiro de Short excedeu 900 caracteres e exigiria {len(parts)} trechos; ajuste o texto antes de gerar áudio.")
+ text=" ".join(x for x in [script.get("opening",""),script["stories"][0]["headline"]+". "+script["stories"][0]["narration"],script.get("closing","")] if x).strip()
+ # Chamadas curtas reduzem o pico de memória no Render Free. As pausas são inseridas
+ # na montagem PCM entre blocos completos de frases, sem depender de SSML.
+ if short:
+  sentences=re.split(r"(?<=[.!?])\s+",re.sub(r"\s+"," ",text))
+  parts=[]; current=""
+  for sentence in sentences:
+   if not sentence.strip():continue
+   candidate=(current+" "+sentence).strip()
+   if len(candidate)>360 and current:
+    parts.append(current);current=sentence.strip()
+   else:current=candidate
+  if current:parts.append(current)
+  while any(len(part)>420 for part in parts):
+   idx=next(i for i,p in enumerate(parts) if len(p)>420)
+   p=parts.pop(idx); cut=p.rfind(" ",0,360)
+   if cut<1:cut=360
+   parts[idx:idx]=[p[:cut].strip(),p[cut:].strip()]
+  if len(parts)>3:raise RuntimeError(f"Roteiro de Short exigiria {len(parts)} chamadas curtas ao Piper; reduza a locução para preservar a memória do Render Free.")
+ else:parts=chunks(text,limit=1250)
+ if not parts:raise RuntimeError("Não há texto para narrar.")
+ frames=[]; params=None
  for i,part in enumerate(parts,1):
   r=S.post(endpoint,headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"},json={"text":part},timeout=180)
   if r.status_code==429:raise RuntimeError("Piper TTS retornou HTTP 429; aguarde e tente novamente.")
-  r.raise_for_status(); path=out.parent/f"_tts_{i:03d}.wav";path.write_bytes(r.content);files.append(path);print(f"[Piper] trecho {i}/{len(parts)}");time.sleep(.25)
- with wave.open(str(files[0]),"rb") as first:params=first.getparams();frames=[first.readframes(first.getnframes())]
- for path in files[1:]:
-  with wave.open(str(path),"rb") as w:
-   if w.getparams()[:3]!=params[:3] or w.getparams()[4:]!=params[4:]:raise RuntimeError("Piper retornou arquivos WAV incompatíveis.")
-   frames.append(w.readframes(w.getnframes()))
- with wave.open(str(out),"wb") as w:
-  w.setparams(params)
-  for frame in frames:w.writeframes(frame)
- for path in files:path.unlink(missing_ok=True)
+  r.raise_for_status()
+  path=out.parent/f"_tts_{i:03d}.wav";path.write_bytes(r.content)
+  try:
+   with wave.open(str(path),"rb") as wav:
+    current_params=wav.getparams(); data=wav.readframes(wav.getnframes())
+  finally:path.unlink(missing_ok=True)
+  if params is None:params=current_params
+  elif current_params[:3]!=params[:3] or current_params[4:]!=params[4:]:
+   raise RuntimeError("Piper retornou arquivos WAV incompatíveis.")
+  if frames:
+   silence_duration=0.32 if short else 0.18
+   silence_frames=int(params.framerate*silence_duration)
+   frames.append(b"\x00"*(silence_frames*params.nchannels*params.sampwidth))
+  frames.append(data)
+  print(f"[Piper] bloco {i}/{len(parts)}: {len(part)} caracteres")
+ with wave.open(str(out),"wb") as wav:
+  wav.setparams(params)
+  for data in frames:wav.writeframes(data)
  return len(parts),len(text)
 
 def main():
@@ -254,16 +337,15 @@ def main():
  (out/"roteiro.json").write_text(json.dumps(script,ensure_ascii=False,indent=2),encoding="utf-8")
  full=script.get("opening","")+"\n\n"+"\n\n".join(s["headline"]+"\n"+s["narration"]+"\nFonte: "+s["source_name"]+" — "+s["source_url"] for s in script["stories"])+"\n\n"+script.get("closing","")
  (out/"roteiro.txt").write_text(full,encoding="utf-8")
- print("[3/4] Buscando imagens com licenças compatíveis no Wikimedia Commons...")
+ print("[3/4] Buscando imagens licenciadas e criando cenas editoriais...")
  credits=[]
- for i,st in enumerate(script["stories"],1):
-  dest=imgs/f"{i:02d}.jpg";credit=commons(st.get("image_query") or st["headline"],dest)
-  if not credit:placeholder(dest,st["headline"],i);credit={"file":dest.name,"source":"Arte ilustrativa original do Radar Diário","license":"Não é fotografia documental."}
-  credits.append({**credit,"story":st["headline"],"article_source":st["source_url"]})
+ for st in script["stories"]:
+  story_credits=prepare_visuals(st,imgs)
+  credits.extend({**credit,"story":st["headline"],"article_source":st["source_url"]} for credit in story_credits)
  (out/"creditos-imagens.json").write_text(json.dumps(credits,ensure_ascii=False,indent=2),encoding="utf-8")
  print("[4/4] Gerando a narração com o Piper TTS existente...")
  count,chars=piper(script,out/"audio.wav",short=a.format=="shorts")
- manifest={"title":"O Seu Radar — YouTube Shorts" if a.format=="shorts" else "O Seu Radar — Radar Diário","edition_date":script["edition_date"],"headline":script["stories"][0]["headline"],"stories":len(script["stories"]),"estimated_minutes":script["estimated_minutes"],"format":a.format,"tts_chunks":count,"characters_narrated":chars,"sources":[{"title":s["article_title"],"publisher":s["source_name"],"url":s["source_url"]} for s in script["stories"]],"image_credits":"creditos-imagens.json","approval_required":True,"youtube_published":False}
+ manifest={"title":"O Seu Radar — YouTube Shorts" if a.format=="shorts" else "O Seu Radar — Radar Diário","edition_date":script["edition_date"],"headline":script["stories"][0]["headline"],"stories":len(script["stories"]),"estimated_minutes":script["estimated_minutes"],"format":a.format,"tts_chunks":count,"characters_narrated":chars,"sources":[{"title":s["article_title"],"publisher":s["source_name"],"url":s["source_url"]} for s in script["stories"]],"image_credits":"creditos-imagens.json","images_count":len(credits),"illustrative_images":sum(1 for c in credits if c.get("source")=="Arte ilustrativa original do O Seu Radar"),"approval_required":True,"youtube_published":False}
  (out/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8");print(json.dumps(manifest,ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
