@@ -59,6 +59,8 @@ def main():
         raise SystemExit("Adicione pelo menos uma imagem JPG, PNG ou WebP à pasta informada.")
 
     duration = probe_duration(audio)
+    if args.format == "shorts" and duration > 60:
+        raise SystemExit(f"Áudio do Short tem {duration:.1f} segundos; o limite editorial é 60 segundos. Vídeo não será montado.")
     output_dir.mkdir(parents=True, exist_ok=True)
     work_dir = output_dir / "_work"
     work_dir.mkdir(parents=True, exist_ok=True)
