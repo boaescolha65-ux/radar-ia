@@ -31,8 +31,10 @@ jobs:
           PY
           node --check --input-type=module < /tmp/radar-diario-admin.js
 
-      - name: Validar pipeline Python de produção
+      - name: Validar sintaxe dos scripts Python
+        run: python -m py_compile scripts/produce_radar_edition.py scripts/render_radar_video.py
+      - name: Validar comandos do pipeline
         run: |
-          python -m py_compile scripts/produce_radar_edition.py scripts/render_radar_video.py
+          python -m pip install requests beautifulsoup4 pillow
           python scripts/produce_radar_edition.py --help
           python scripts/render_radar_video.py --help
