@@ -90,7 +90,7 @@ def main():
 
         for index, (segment, image, duration) in enumerate(zip(segments, images, durations), start=1):
             title_file = temp / f"title-{index:02d}.txt"
-            title_file.write_text(str(segment["title"]).replace("\\", "\\\\"), encoding="utf-8")
+            title_file.write_text(str(segment["title"]), encoding="utf-8")
             clip = temp / f"clip-{index:02d}.mp4"
             filter_value = (
                 f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,"
