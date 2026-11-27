@@ -1,37 +1,33 @@
-# Produção automática do Radar Diário
+# Produção de YouTube Shorts — O Seu Radar
 
-A edição não exige WAV nem imagens fornecidos manualmente. O workflow **Radar Diário — produção automática do telejornal** coleta notícias recentes, gera o roteiro com Gemini, busca imagens reutilizáveis no Wikimedia Commons (ou cria artes ilustrativas quando não encontra imagem compatível), produz a narração pelo Piper TTS existente e monta o MP4 com FFmpeg.
+O workflow **O Seu Radar — produção de YouTube Shorts** seleciona uma notícia recente de Tecnologia da Informação ou Inteligência Artificial, cria um roteiro original de 95 a 115 palavras, gera a narração com o Piper TTS existente, obtém uma imagem reutilizável do Wikimedia Commons (ou cria uma arte identificada como ilustrativa) e monta um MP4 vertical 9:16.
 
-## Configuração necessária — uma única vez
+## Configuração necessária
 
-No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret** e cadastre:
+No GitHub, em **Settings → Secrets and variables → Actions**, mantenha os secrets já cadastrados:
 
-- `GEMINI_API_KEY`: chave criada no Google AI Studio.
-- `PIPER_API_KEY`: a mesma credencial já usada pelo serviço Piper do Radar, sem publicá-la no repositório.
+- `GEMINI_API_KEY`
+- `PIPER_API_KEY`
 
-Não cole as chaves em arquivos, issues ou mensagens. O endereço do Piper já está configurado no workflow.
-
-Opcionalmente, em **Variables**, pode definir `GEMINI_MODEL`; por padrão o fluxo usa `gemini-3.6-flash`.
+Não cole chaves em arquivos, issues ou mensagens. O endereço do Piper já está configurado no workflow.
 
 ## Como executar
 
 1. Abra a aba **Actions** do repositório.
-2. Escolha **Radar Diário — produção automática do telejornal**.
-3. Clique em **Run workflow**.
-4. Mantenha a janela de 36 horas e o limite de 40 notícias na primeira execução.
-5. Aguarde a geração do artefato e baixe a edição para revisão.
+2. Escolha **O Seu Radar — produção de YouTube Shorts**.
+3. Clique em **Run workflow** na branch `main`.
+4. Mantenha inicialmente a janela de 36 horas e o limite de 40 notícias candidatas.
+5. Aguarde o artefato e baixe o MP4 para revisão.
 
-O artefato inclui MP4, WAV, roteiro em JSON e texto, fontes das notícias e créditos/licenças das imagens. Os artefatos ficam disponíveis por 7 dias.
+## Regras editoriais e técnicas
 
-## Regras editoriais e de segurança
-
-- O foco é exclusivamente Tecnologia da Informação e Inteligência Artificial.
-- São necessárias de 6 a 8 notícias recentes, com fontes e URLs preservadas.
-- O roteiro deve passar pela validação de extensão antes de gerar o áudio.
-- Imagens do Wikimedia Commons só são usadas quando a licença identificada é CC0, domínio público ou CC BY; os créditos são registrados. Quando não há imagem adequada, é criada uma arte identificada como ilustrativa.
-- A narração é produzida em partes pelo Piper, respeitando o limite de caracteres por requisição.
+- Um Short por execução, com exatamente uma notícia de TI ou IA.
+- Narração de 95 a 115 palavras, com meta de aproximadamente 45–55 segundos e limite rígido de 60 segundos no renderizador.
+- Vídeo vertical 1080×1920 (9:16), 30 fps.
+- A narração usa uma requisição curta do Piper sempre que o texto couber no limite de 900 caracteres por trecho.
+- A validação do roteiro impede a montagem quando o texto excede a faixa definida.
+- Imagens Wikimedia são usadas somente com licença CC0, domínio público ou CC BY; créditos são registrados. Quando não há imagem adequada, é criada uma arte identificada como ilustrativa.
 - A execução é manual. Não há publicação automática no YouTube.
-- O roteiro, áudio e vídeo são materiais de prévia e precisam de aprovação editorial humana.
-- Nenhuma chave deve ser armazenada nesta pasta ou em qualquer arquivo do Git.
-
-Os arquivos de áudio e imagens são gerados durante a execução e não precisam ser enviados ao repositório.
+- Roteiro, áudio e vídeo exigem aprovação editorial humana.
+- Os artefatos ficam disponíveis por 7 dias.
+- Não é necessário fornecer WAV nem imagens manualmente.
