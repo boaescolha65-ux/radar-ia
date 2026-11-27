@@ -63,7 +63,8 @@ def read_feed(source,url,cutoff):
    text=payload.decode("utf-8",errors="replace")
    text=re.sub(r"&(?!#\d+;|#x[0-9a-fA-F]+;|[A-Za-z][\w.-]*;)","&amp;",text)
    text=re.sub(r"[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]","",text)
-   text=re.sub(r"^\\s*<\\?xml[^>]*\\?>","",text,flags=re.I)
+   text=text.lstrip()
+   if text.startswith("<?xml") and "?>" in text:text=text.split("?>",1)[1]
    root=ET.fromstring(text.encode("utf-8"))
    print(f"[feed] {source}: XML recuperado após normalização de caracteres inválidos.",file=sys.stderr)
   for item in root.findall(".//item"):
