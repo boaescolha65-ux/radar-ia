@@ -228,6 +228,7 @@ def piper(script,out,short=False):
  endpoint=os.getenv("PIPER_API_URL","https://radar-ia-1.onrender.com/api/tts")
  text="\n\n".join([script.get("opening","")]+[x["headline"]+". "+x["narration"] for x in script["stories"]]+[script.get("closing","")])
  parts=chunks(text,limit=900 if short else 1250); files=[]
+ if short and len(parts)!=1:raise RuntimeError(f"Roteiro de Short excedeu 900 caracteres e exigiria {len(parts)} trechos; ajuste o texto antes de gerar áudio.")
  for i,part in enumerate(parts,1):
   r=S.post(endpoint,headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"},json={"text":part},timeout=180)
   if r.status_code==429:raise RuntimeError("Piper TTS retornou HTTP 429; aguarde e tente novamente.")
