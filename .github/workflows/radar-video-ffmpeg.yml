@@ -31,6 +31,7 @@ jobs:
           ffmpeg -version
           ffprobe -version
           python3 --version
+          python3 -m py_compile scripts/build-radar-video.py
 
       - name: Montar telejornal
         env:
