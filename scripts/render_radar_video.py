@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Renderiza vídeos do O Seu Radar com movimento, transições e identidade visual."""
+"""Renderizador do O Seu Radar: Shorts verticais com movimento e legendas dinâmicas."""
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -9,6 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+WIDTH, HEIGHT, FPS = 1080, 1920, 30
 
 
 def run(command):
@@ -28,34 +30,31 @@ def probe_duration(audio_path):
 
 
 def make_short_overlay(path, headline, edition_date):
-    """Tarjas e manchete são desenhadas em alta resolução com quebra automática."""
-    canvas = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
+    """Cria identidade visual vertical com áreas seguras e manchete legível."""
+    canvas = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
-    cyan = (28, 210, 224, 255)
-    white = (250, 252, 255, 255)
+    cyan, white = (28, 210, 224, 255), (250, 252, 255, 255)
     muted = (190, 213, 224, 255)
-    bold = ImageFont.truetype(FONT_BOLD, 36)
-    regular = ImageFont.truetype(FONT_REGULAR, 25)
+    bold = ImageFont.truetype(FONT_BOLD, 34)
+    regular = ImageFont.truetype(FONT_REGULAR, 22)
 
-    # Identificação superior discreta, com contraste constante sobre qualquer imagem.
-    draw.rounded_rectangle((48, 54, 520, 178), radius=26,
-                           fill=(5, 22, 38, 218), outline=(28, 210, 224, 190), width=3)
-    draw.text((78, 72), "O SEU RADAR", font=bold, fill=cyan)
-    draw.text((80, 126), "TECNOLOGIA  •  INTELIGÊNCIA ARTIFICIAL",
+    draw.rounded_rectangle((48, 52, 650, 166), radius=25,
+                           fill=(5, 22, 38, 220), outline=(28, 210, 224, 210), width=3)
+    draw.text((76, 65), "O SEU RADAR", font=bold, fill=cyan)
+    draw.text((78, 116), "TECNOLOGIA  •  INTELIGÊNCIA ARTIFICIAL",
               font=regular, fill=white)
 
-    # Tarja inferior em duas camadas para leitura mesmo em imagens claras.
-    draw.rounded_rectangle((42, 1350, 1038, 1868), radius=34,
-                           fill=(4, 17, 31, 232), outline=(28, 210, 224, 220), width=3)
-    draw.rounded_rectangle((76, 1390, 88, 1818), radius=6, fill=cyan)
-    eyebrow = ImageFont.truetype(FONT_BOLD, 26)
-    draw.text((120, 1400), "NOTÍCIA EM 60 SEGUNDOS", font=eyebrow, fill=cyan)
+    # Tarja de manchete fica na zona inferior, preservando área central para legendas.
+    draw.rounded_rectangle((42, 1450, 1038, 1874), radius=32,
+                           fill=(4, 17, 31, 238), outline=(28, 210, 224, 220), width=3)
+    draw.rounded_rectangle((76, 1484, 88, 1828), radius=6, fill=cyan)
+    eyebrow = ImageFont.truetype(FONT_BOLD, 24)
+    draw.text((116, 1488), "NOTÍCIA EM 60 SEGUNDOS", font=eyebrow, fill=cyan)
 
     max_width = 850
     words = headline.replace("\n", " ").split()
-    chosen = None
-    lines = []
-    for size in (66, 60, 56, 52, 48, 44):
+    chosen, lines = None, []
+    for size in (58, 54, 50, 46, 42, 38):
         font = ImageFont.truetype(FONT_BOLD, size)
         candidate_lines, current = [], ""
         for word in words:
@@ -71,7 +70,7 @@ def make_short_overlay(path, headline, edition_date):
             chosen, lines = font, candidate_lines
             break
     if chosen is None:
-        chosen = ImageFont.truetype(FONT_BOLD, 42)
+        chosen = ImageFont.truetype(FONT_BOLD, 36)
         lines, current = [], ""
         for word in words:
             test = (current + " " + word).strip()
@@ -84,45 +83,117 @@ def make_short_overlay(path, headline, edition_date):
             lines.append(current)
         lines = lines[:4]
 
-    y = 1465
-    line_height = chosen.size + 17
+    y = 1540
+    line_height = chosen.size + 13
     for line in lines:
-        draw.text((120, y), line, font=chosen, fill=white,
+        draw.text((116, y), line, font=chosen, fill=white,
                   stroke_width=1, stroke_fill=(0, 0, 0, 255))
         y += line_height
 
-    date_font = ImageFont.truetype(FONT_REGULAR, 22)
-    draw.text((120, 1820), f"O SEU RADAR  |  {edition_date}",
+    date_font = ImageFont.truetype(FONT_REGULAR, 20)
+    draw.text((116, 1830), f"O SEU RADAR  |  {edition_date}",
               font=date_font, fill=muted)
     canvas.save(path)
 
 
-def render_shorts(images, audio, duration, output, work_dir, headline, edition_date):
-    """Cria clipes individuais com zoom suave e transições entre imagens."""
+def ass_time(seconds):
+    centiseconds = max(0, int(round(seconds * 100)))
+    hours, remainder = divmod(centiseconds, 360000)
+    minutes, remainder = divmod(remainder, 6000)
+    whole_seconds, cs = divmod(remainder, 100)
+    return f"{hours}:{minutes:02d}:{whole_seconds:02d}.{cs:02d}"
+
+
+def make_dynamic_captions(path, narration, duration):
+    """Distribui frases curtas ao longo do áudio e as queima em área segura vertical."""
+    words = re.findall(r"\S+", narration or "")
+    if not words:
+        words = ["Acompanhe", "as", "notícias", "de", "tecnologia", "e", "inteligência", "artificial."]
+    groups, current = [], []
+    for word in words:
+        current.append(word)
+        if len(current) >= 6 or re.search(r"[.!?;:]$", word):
+            groups.append(current)
+            current = []
+    if current:
+        groups.append(current)
+
+    # Evita flashes de legenda: cada cartão recebe tempo proporcional ao número de palavras.
+    weights = [max(1, len(group)) for group in groups]
+    total_weight = sum(weights)
+    cursor = 0.0
+    lines = [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        "PlayResX: 1080",
+        "PlayResY: 1920",
+        "WrapStyle: 2",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        "Style: Radar,DejaVu Sans,58,&H00FFFFFF,&H0000FFFF,&H00101824,&HCC061522,-1,0,0,0,100,100,0,0,1,4,1,2,90,90,500,1",
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ]
+    for index, group in enumerate(groups):
+        start = cursor
+        end = duration if index == len(groups) - 1 else cursor + duration * weights[index] / total_weight
+        cursor = end
+        if end - start < 0.65:
+            end = min(duration, start + 0.65)
+        text = " ".join(group)
+        # Quebra em até duas linhas para leitura em telas pequenas.
+        parts, line = [], ""
+        for word in text.split():
+            candidate = (line + " " + word).strip()
+            if len(candidate) > 28 and line:
+                parts.append(line)
+                line = word
+            else:
+                line = candidate
+        if line:
+            parts.append(line)
+        caption = r"\N".join(parts[:2])
+        caption = caption.replace("{", r"\{").replace("}", r"\}")
+        lines.append(
+            f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Radar,,0,0,0,,{caption}"
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def render_shorts(images, audio, duration, output, work_dir, headline,
+                  edition_date, narration):
+    """Cria cenas com zoom/pan contínuos, transições, legendas e barra de progresso."""
     images = images[:4]
     overlay = work_dir / "short-overlay.png"
+    captions = work_dir / "captions.ass"
     make_short_overlay(overlay, headline, edition_date)
+    make_dynamic_captions(captions, narration, duration)
 
     overlap = 0.45
     clip_duration = (duration + overlap * (len(images) - 1)) / len(images)
     command = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "warning",
                "-filter_complex_threads", "1"]
     for image in images:
-        command += ["-loop", "1", "-framerate", "30",
+        command += ["-loop", "1", "-framerate", str(FPS),
                     "-t", f"{clip_duration:.4f}", "-i", str(image)]
     audio_index = len(images)
-    command += ["-i", str(audio),
-                "-loop", "1", "-framerate", "30",
+    command += ["-i", str(audio), "-loop", "1", "-framerate", str(FPS),
                 "-t", f"{duration:.4f}", "-i", str(overlay)]
 
     filters = []
     for index in range(len(images)):
+        # on controla o movimento quadro a quadro; o deslocamento alterna o sentido.
+        direction = 1 if index % 2 == 0 else -1
         filters.append(
-            f"[{index}:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-            "crop=1080:1920,"
-            "zoompan=z='min(zoom+0.00065,1.10)':"
-            "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-            "d=1:s=1080x1920:fps=30,setsar=1,format=yuv420p"
+            f"[{index}:v]scale=1200:2134:force_original_aspect_ratio=increase,"
+            "crop=1200:2134,"
+            f"zoompan=z='min(1+on*0.0009,1.14)':"
+            f"x='iw/2-(iw/zoom/2)+{direction}*min(on*0.16,24)':"
+            "y='ih/2-(ih/zoom/2)':"
+            f"d=1:s={WIDTH}x{HEIGHT}:fps={FPS},setsar=1,format=yuv420p"
             f"[scene{index}]"
         )
 
@@ -134,21 +205,24 @@ def render_shorts(images, audio, duration, output, work_dir, headline, edition_d
             next_label = f"transition{index}"
             offset = index * (clip_duration - overlap)
             filters.append(
-                f"[{current}][scene{index}]xfade=transition=fade:"
+                f"[{current}][scene{index}]xfade=transition= smoothleft:"
                 f"duration={overlap}:offset={offset:.4f}[{next_label}]"
             )
             current = next_label
         base = f"[{current}]"
 
     overlay_index = len(images) + 1
+    caption_path = str(captions.resolve()).replace("\\", "/").replace(":", r"\:")
     filters.append(
         f"{base}[{overlay_index}:v]overlay=0:0:shortest=1:format=auto,"
+        f"drawbox=x=0:y=0:w='iw*t/{duration:.4f}':h=12:color=0x1CD2E0:t=fill,"
+        f"subtitles=filename='{caption_path}':fontsdir='/usr/share/fonts/truetype/dejavu',"
         "format=yuv420p[vout]"
     )
     command += ["-filter_complex", ";".join(filters),
                 "-map", "[vout]", "-map", f"{audio_index}:a:0",
-                "-t", f"{duration:.3f}", "-r", "30",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+                "-t", f"{duration:.3f}", "-r", str(FPS),
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
                 "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                 "-movflags", "+faststart", str(output)]
     run(command)
@@ -189,6 +263,7 @@ def main():
     parser.add_argument("--date", required=True, help="Data da edição (AAAA-MM-DD)")
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--format", choices=("landscape", "shorts"), default="landscape")
+    parser.add_argument("--script", help="JSON do roteiro para gerar legendas sincronizadas")
     args = parser.parse_args()
 
     audio = Path(args.audio).resolve()
@@ -212,19 +287,32 @@ def main():
             "Vídeo não será montado."
         )
 
+    narration = ""
+    if args.script:
+        script = json.loads(Path(args.script).read_text(encoding="utf-8"))
+        narration = " ".join(
+            part for part in (
+                script.get("opening", ""),
+                script["stories"][0].get("headline", ""),
+                script["stories"][0].get("narration", ""),
+                script.get("closing", ""),
+            ) if part
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     work_dir = output_dir / "_work"
     work_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / f"radar-diario-{args.date}.mp4"
     if args.format == "shorts":
         render_shorts(images, audio, duration, output, work_dir,
-                      args.headline, args.date)
+                      args.headline, args.date, narration)
     else:
         render_landscape(images, audio, duration, output, work_dir, args.headline)
 
     print(f"Vídeo criado: {output}")
     print(f"Duração do áudio: {duration:.1f} segundos")
     print(f"Imagens/cenas utilizadas: {min(len(images), 4) if args.format == 'shorts' else len(images)}")
+    if args.format == "shorts":
+        print("Movimento por quadro: zoom/pan; transições; legendas dinâmicas; barra de progresso.")
 
 
 if __name__ == "__main__":
