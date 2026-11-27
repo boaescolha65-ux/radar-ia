@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--headline", required=True, help="Manchete exibida na tarja")
     parser.add_argument("--date", required=True, help="Data da edição (AAAA-MM-DD)")
     parser.add_argument("--output-dir", default="output")
+    parser.add_argument("--format", choices=("landscape", "shorts"), default="landscape")
     args = parser.parse_args()
 
     audio = Path(args.audio).resolve()
@@ -75,15 +76,25 @@ def main():
     concat_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     output = output_dir / f"radar-diario-{args.date}.mp4"
-    video_filter = (
-        "scale=1920:1080:force_original_aspect_ratio=decrease,"
-        "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x101820,"
-        "setsar=1,"
-        "drawbox=x=0:y=ih-190:w=iw:h=190:color=0x071521@0.88:t=fill,"
-        f"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-        f"textfile={headline_file}:fontcolor=white:fontsize=46:"
-        "x=80:y=h-145:box=0"
-    )
+    if args.format == "shorts":
+        video_filter = (
+            "scale=1080:1920:force_original_aspect_ratio=increase,"
+            "crop=1080:1920,setsar=1,"
+            "drawbox=x=0:y=ih-520:w=iw:h=520:color=0x071521@0.88:t=fill,"
+            f"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+            f"textfile={headline_file}:fontcolor=white:fontsize=58:"
+            "x=70:y=h-420:box=0"
+        )
+    else:
+        video_filter = (
+            "scale=1920:1080:force_original_aspect_ratio=decrease,"
+            "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x101820,"
+            "setsar=1,"
+            "drawbox=x=0:y=ih-190:w=iw:h=190:color=0x071521@0.88:t=fill,"
+            f"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+            f"textfile={headline_file}:fontcolor=white:fontsize=46:"
+            "x=80:y=h-145:box=0"
+        )
 
     run([
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "warning",
