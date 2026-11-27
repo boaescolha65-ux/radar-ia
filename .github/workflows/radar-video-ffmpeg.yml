@@ -33,9 +33,11 @@ jobs:
           python3 --version
 
       - name: Montar telejornal
+        env:
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
         run: |
           python3 scripts/build-radar-video.py \
-            --manifest "${{ inputs.manifest_path }}" \
+            --manifest "$MANIFEST_PATH" \
             --output output/radar-diario.mp4
 
       - name: Disponibilizar vídeo para revisão
