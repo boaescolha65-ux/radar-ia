@@ -1,25 +1,17 @@
-name: Radar Diário — produção de vídeo
+name: Radar Diário — produção automática do telejornal
 
 on:
   workflow_dispatch:
     inputs:
-      audio_path:
-        description: "Caminho do WAV aprovado dentro do repositório"
+      lookback_hours:
+        description: "Janela de notícias recentes (horas)"
         required: true
-        default: "radar-video/input/audio.wav"
+        default: "36"
         type: string
-      images_dir:
-        description: "Pasta com imagens JPG, PNG ou WebP"
+      max_articles:
+        description: "Máximo de notícias candidatas coletadas"
         required: true
-        default: "radar-video/input/images"
-        type: string
-      headline:
-        description: "Manchete para a tarja do vídeo"
-        required: true
-        type: string
-      edition_date:
-        description: "Data da edição (AAAA-MM-DD)"
-        required: true
+        default: "40"
         type: string
 
 permissions:
@@ -30,37 +22,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  render:
-    name: Montar vídeo com FFmpeg
+  produce:
+    name: Gerar roteiro, áudio, imagens e vídeo
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.6-flash' }}
+      PIPER_API_KEY: ${{ secrets.PIPER_API_KEY }}
+      PIPER_API_URL: "https://radar-ia-1.onrender.com/api/tts"
     steps:
-      - name: Baixar arquivos do repositório
+      - name: Baixar código
         uses: actions/checkout@v4
 
-      - name: Instalar FFmpeg e fonte
+      - name: Instalar FFmpeg, fontes e bibliotecas
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pillow
 
-      - name: Preparar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Montar MP4
+      - name: Validar credenciais necessárias
         run: |
-          python scripts/render_radar_video.py \
-            --audio "${{ inputs.audio_path }}" \
-            --images "${{ inputs.images_dir }}" \
-            --headline "${{ inputs.headline }}" \
-            --date "${{ inputs.edition_date }}" \
-            --output-dir output
+          test -n "$GEMINI_API_KEY" || (echo "::error::Configure GEMINI_API_KEY nos Secrets do GitHub." && exit 1)
+          test -n "$PIPER_API_KEY" || (echo "::error::Configure PIPER_API_KEY nos Secrets do GitHub." && exit 1)
 
-      - name: Disponibilizar vídeo para revisão
+      - name: Gerar pauta, roteiro, imagens e áudio
+        run: |
+          python scripts/produce_radar_edition.py \
+            --output-dir output/edition \
+            --lookback-hours "${{ inputs.lookback_hours }}" \
+            --max-articles "${{ inputs.max_articles }}"
+
+      - name: Montar vídeo MP4 com FFmpeg
+        run: |
+          headline="$(python -c 'import json; print(json.load(open("output/edition/manifest.json"))["headline"])')"
+          edition_date="$(python -c 'import json; print(json.load(open("output/edition/manifest.json"))["edition_date"])')"
+          python scripts/render_radar_video.py \
+            --audio output/edition/audio.wav \
+            --images output/edition/images \
+            --headline "$headline" \
+            --date "$edition_date" \
+            --output-dir output/video
+
+      - name: Disponibilizar edição para revisão manual
         uses: actions/upload-artifact@v4
         with:
-          name: radar-diario-video-${{ inputs.edition_date }}
-          path: output/radar-diario-${{ inputs.edition_date }}.mp4
+          name: radar-diario-edicao-${{ github.run_number }}
+          path: |
+            output/edition/
+            output/video/*.mp4
           if-no-files-found: error
           retention-days: 7
