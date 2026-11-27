@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/radar-diario-script
+      - feature/radar-diario-video-workflow
   pull_request:
     branches:
       - main
@@ -30,3 +31,11 @@ jobs:
           Path("/tmp/radar-diario-admin.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check --input-type=module < /tmp/radar-diario-admin.js
+
+      - name: Validar sintaxe dos scripts Python
+        run: python -m py_compile scripts/produce_radar_edition.py scripts/render_radar_video.py
+      - name: Validar comandos do pipeline
+        run: |
+          python -m pip install requests beautifulsoup4 pillow
+          python scripts/produce_radar_edition.py --help
+          python scripts/render_radar_video.py --help
