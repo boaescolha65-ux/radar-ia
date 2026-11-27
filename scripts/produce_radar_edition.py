@@ -345,7 +345,7 @@ def main():
  (out/"creditos-imagens.json").write_text(json.dumps(credits,ensure_ascii=False,indent=2),encoding="utf-8")
  print("[4/4] Gerando a narração com o Piper TTS existente...")
  count,chars=piper(script,out/"audio.wav",short=a.format=="shorts")
- manifest={"title":"O Seu Radar — YouTube Shorts" if a.format=="shorts" else "O Seu Radar — Radar Diário","edition_date":script["edition_date"],"headline":script["stories"][0]["headline"],"stories":len(script["stories"]),"estimated_minutes":script["estimated_minutes"],"format":a.format,"tts_chunks":count,"characters_narrated":chars,"sources":[{"title":s["article_title"],"publisher":s["source_name"],"url":s["source_url"]} for s in script["stories"]],"image_credits":"creditos-imagens.json","approval_required":True,"youtube_published":False}
+ manifest={"title":"O Seu Radar — YouTube Shorts" if a.format=="shorts" else "O Seu Radar — Radar Diário","edition_date":script["edition_date"],"headline":script["stories"][0]["headline"],"stories":len(script["stories"]),"estimated_minutes":script["estimated_minutes"],"format":a.format,"tts_chunks":count,"characters_narrated":chars,"sources":[{"title":s["article_title"],"publisher":s["source_name"],"url":s["source_url"]} for s in script["stories"]],"image_credits":"creditos-imagens.json","images_count":len(credits),"illustrative_images":sum(1 for c in credits if c.get("source")=="Arte ilustrativa original do O Seu Radar"),"approval_required":True,"youtube_published":False}
  (out/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8");print(json.dumps(manifest,ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
