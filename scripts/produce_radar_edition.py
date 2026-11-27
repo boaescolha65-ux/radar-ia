@@ -113,14 +113,16 @@ def collect(hours,limit):
  if len(out)<6:raise RuntimeError(f"Apenas {len(out)} notícias recentes elegíveis encontradas; são necessárias pelo menos 6.")
  return out
 
-def gemini(items):
+def gemini(items,short=False):
  key=os.getenv("GEMINI_API_KEY")
  if not key:raise RuntimeError("Configure GEMINI_API_KEY nos Secrets do GitHub.")
  model=os.getenv("GEMINI_MODEL","gemini-3.6-flash")
  candidates=[{k:x[k] for k in ("title","url","published","source","summary","body")} for x in items]
- prompt="""Você é editor-chefe do telejornal brasileiro O Seu Radar — Radar Diário, dedicado EXCLUSIVAMENTE a Tecnologia da Informação e Inteligência Artificial. Use apenas as notícias fornecidas. Selecione 6 a 8 pautas recentes, distintas e relevantes. Não invente fatos, datas, números, citações ou fontes. Diferencie fatos de análise. Escreva em português brasileiro natural.
+ prompt = ("""Você é editor-chefe do canal O Seu Radar no YouTube Shorts, dedicado EXCLUSIVAMENTE a Tecnologia da Informação e Inteligência Artificial. Escolha UMA notícia recente, relevante e bem sustentada entre as pautas fornecidas. Use apenas os fatos das fontes; não invente dados, datas, citações ou impactos. Escreva em português brasileiro natural, com ritmo de telejornal.
+Crie um roteiro para um YouTube Short vertical com duração máxima de 60 segundos: a narração principal deve ter entre 95 e 115 palavras, adequada a aproximadamente 45–55 segundos de fala. Uma abertura de no máximo uma frase curta e um encerramento muito breve são opcionais; priorize a notícia. Inclua manchete curta, contexto essencial, o que aconteceu e por que importa. Evite saudações longas, listas, repetição e enchimento.
+Retorne APENAS JSON válido: {"opening":"","stories":[{"source_url":"URL exata de uma pauta fornecida","source_name":"fonte fornecida","category":"Tecnologia da Informação ou Inteligência Artificial","headline":"manchete curta","narration":"locução original de 95 a 115 palavras","image_query":"descrição visual curta em inglês"}],"closing":"","editorial_notes":["..."]}. Inclua exatamente UMA matéria. source_url precisa ser uma URL exata recebida.""") if short else ("""Você é editor-chefe do telejornal brasileiro O Seu Radar — Radar Diário, dedicado EXCLUSIVAMENTE a Tecnologia da Informação e Inteligência Artificial. Use apenas as notícias fornecidas. Selecione 6 a 8 pautas recentes, distintas e relevantes. Não invente fatos, datas, números, citações ou fontes. Diferencie fatos de análise. Escreva em português brasileiro natural.
 Crie edição de 12 a 15 minutos, com alvo de 1.700–1.850 palavras faladas (faixa aceitável de 1.550–2.050): abertura curta, 6–8 matérias de aproximadamente 230–270 palavras cada, transições naturais e encerramento. Desenvolva o contexto, explique impactos e limitações; contexto brasileiro somente quando sustentado pelas fontes. Não copie as matérias e não use repetição artificial para atingir a extensão.
-Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exata de uma pauta fornecida","source_name":"fonte fornecida","category":"Tecnologia da Informação ou Inteligência Artificial","headline":"manchete curta","narration":"locução original","image_query":"descrição visual curta em inglês"}],"closing":"...","editorial_notes":["..."]}. source_url precisa ser uma URL exata recebida. Não repita pautas."""
+Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exata de uma pauta fornecida","source_name":"fonte fornecida","category":"Tecnologia da Informação ou Inteligência Artificial","headline":"manchete curta","narration":"locução original","image_query":"descrição visual curta em inglês"}],"closing":"...","editorial_notes":["..."]}. source_url precisa ser uma URL exata recebida. Não repita pautas.""")
  endpoint=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
  def request_script(instruction):
   r=S.post(endpoint,params={"key":key},json={"contents":[{"role":"user","parts":[{"text":instruction+"\n\nPAUTAS:\n"+json.dumps(candidates,ensure_ascii=False)}]}],"generationConfig":{"temperature":0.25,"responseMimeType":"application/json","maxOutputTokens":16000}},timeout=180)
@@ -155,24 +157,22 @@ Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exat
   used=set(); stories=[]
   for index,st in enumerate(script["stories"],1):
    url=st.get("source_url",""); src=byurl.get(url); narration=str(st.get("narration","")).strip(); words=len(narration.split())
-   if not src or url in used or words<130:continue
+   if not src or url in used or words<(90 if short else 130):continue
    used.add(url); st.update({"source_url":url,"source_name":src["source"],"article_title":src["title"],"published":src["published"],"headline":str(st.get("headline") or src["title"])[:150],"word_count":words})
    if st.get("category") not in ("Tecnologia da Informação","Inteligência Artificial"):st["category"]="Tecnologia da Informação"
    stories.append(st)
-  if not 6<=len(stories)<=8:raise RuntimeError(f"Gemini retornou {len(stories)} matérias válidas; necessário de 6 a 8.")
+  if (len(stories)!=1 if short else not 6<=len(stories)<=8):raise RuntimeError(f"Gemini retornou {len(stories)} matérias válidas; necessário exatamente 1 para Shorts." if short else f"Gemini retornou {len(stories)} matérias válidas; necessário de 6 a 8.")
   script["stories"]=stories
   words=len(str(script.get("opening","")).split())+len(str(script.get("closing","")).split())+sum(x["word_count"] for x in stories)
   return words
  script=request_script(prompt)
  words=validate(script)
- if not 1550<=words<=2050:
+ if ((not 95<=words<=125) if short else (not 1550<=words<=2050)):
   print(f"[Gemini] Roteiro inicial com {words} palavras; solicitando uma revisão de extensão sem acrescentar fatos...")
-  revision_prompt="""Revise o roteiro JSON abaixo para que a locução completa fique entre 1.650 e 1.900 palavras. A versão anterior ficou fora da faixa. Preserve exatamente as 6–8 pautas, URLs, fontes e fatos já sustentados pelo material de referência. Amplie ou reduza com contexto, explicações, consequências e transições úteis, sem inventar dados, exemplos apresentados como fatos, citações ou acontecimentos. Não repita ideias nem acrescente enchimento. Cada matéria deve ter aproximadamente 230–270 palavras. Mantenha o formato JSON e os mesmos campos. Retorne APENAS o JSON revisado.
-ROTEIRO ANTERIOR:
-"""+json.dumps(script,ensure_ascii=False)
+  revision_prompt=("Revise o JSON para que a narração tenha entre 95 e 115 palavras, mantendo exatamente uma matéria, a mesma URL, fonte e fatos. Não invente dados nem acrescente enchimento. Retorne apenas JSON.\nROTEIRO ANTERIOR:\n" if short else """Revise o roteiro JSON abaixo para que a locução completa fique entre 1.650 e 1.900 palavras. A versão anterior ficou fora da faixa. Preserve exatamente as 6–8 pautas, URLs, fontes e fatos já sustentados pelo material de referência. Amplie ou reduza com contexto, explicações, consequências e transições úteis, sem inventar dados, exemplos apresentados como fatos, citações ou acontecimentos. Não repita ideias nem acrescente enchimento. Cada matéria deve ter aproximadamente 230–270 palavras. Mantenha o formato JSON e os mesmos campos. Retorne APENAS o JSON revisado.\nROTEIRO ANTERIOR:\n""")+json.dumps(script,ensure_ascii=False)
   script=request_script(revision_prompt)
   words=validate(script)
- if not 1550<=words<=2050:raise RuntimeError(f"Após uma revisão, o roteiro ficou com {words} palavras, fora da faixa de 12–15 minutos; nenhuma publicação foi feita.")
+ if ((not 95<=words<=125) if short else (not 1550<=words<=2050)):raise RuntimeError(f"Após uma revisão, o roteiro ficou com {words} palavras, fora da faixa do formato solicitado; nenhuma publicação foi feita.")
  script.update({"program_title":"O Seu Radar — Radar Diário","edition_date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"stories":script["stories"],"estimated_minutes":round(words/135,1)})
  print(f"[Gemini] Roteiro validado: {words} palavras, estimativa de {script['estimated_minutes']} minutos.")
  return script
@@ -222,12 +222,12 @@ def chunks(text,limit=1250):
  if cur:out.append(cur)
  return out
 
-def piper(script,out):
+def piper(script,out,short=False):
  key=os.getenv("PIPER_API_KEY")
  if not key:raise RuntimeError("Configure PIPER_API_KEY nos Secrets do GitHub.")
  endpoint=os.getenv("PIPER_API_URL","https://radar-ia-1.onrender.com/api/tts")
  text="\n\n".join([script.get("opening","")]+[x["headline"]+". "+x["narration"] for x in script["stories"]]+[script.get("closing","")])
- parts=chunks(text); files=[]
+ parts=chunks(text,limit=900 if short else 1250); files=[]
  for i,part in enumerate(parts,1):
   r=S.post(endpoint,headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"},json={"text":part},timeout=180)
   if r.status_code==429:raise RuntimeError("Piper TTS retornou HTTP 429; aguarde e tente novamente.")
@@ -244,12 +244,12 @@ def piper(script,out):
  return len(parts),len(text)
 
 def main():
- ap=argparse.ArgumentParser();ap.add_argument("--output-dir",default="output/edition");ap.add_argument("--lookback-hours",type=int,default=36);ap.add_argument("--max-articles",type=int,default=40);a=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument("--format",choices=("daily","shorts"),default="daily");ap.add_argument("--output-dir",default="output/edition");ap.add_argument("--lookback-hours",type=int,default=36);ap.add_argument("--max-articles",type=int,default=40);a=ap.parse_args()
  out=Path(a.output_dir);imgs=out/"images";imgs.mkdir(parents=True,exist_ok=True)
  print("[1/4] Coletando RSS do O Seu Radar e fontes externas de TI/IA...")
  items=collect(a.lookback_hours,a.max_articles);print(f"{len(items)} notícias candidatas")
  print("[2/4] Gemini está criando roteiro original...")
- script=gemini(items)
+ script=gemini(items,short=a.format=="shorts")
  (out/"roteiro.json").write_text(json.dumps(script,ensure_ascii=False,indent=2),encoding="utf-8")
  full=script.get("opening","")+"\n\n"+"\n\n".join(s["headline"]+"\n"+s["narration"]+"\nFonte: "+s["source_name"]+" — "+s["source_url"] for s in script["stories"])+"\n\n"+script.get("closing","")
  (out/"roteiro.txt").write_text(full,encoding="utf-8")
@@ -261,8 +261,8 @@ def main():
   credits.append({**credit,"story":st["headline"],"article_source":st["source_url"]})
  (out/"creditos-imagens.json").write_text(json.dumps(credits,ensure_ascii=False,indent=2),encoding="utf-8")
  print("[4/4] Gerando a narração com o Piper TTS existente...")
- count,chars=piper(script,out/"audio.wav")
- manifest={"title":"O Seu Radar — Radar Diário","edition_date":script["edition_date"],"headline":script["stories"][0]["headline"],"stories":len(script["stories"]),"estimated_minutes":script["estimated_minutes"],"tts_chunks":count,"characters_narrated":chars,"sources":[{"title":s["article_title"],"publisher":s["source_name"],"url":s["source_url"]} for s in script["stories"]],"image_credits":"creditos-imagens.json","approval_required":True,"youtube_published":False}
+ count,chars=piper(script,out/"audio.wav",short=a.format=="shorts")
+ manifest={"title":"O Seu Radar — YouTube Shorts" if a.format=="shorts" else "O Seu Radar — Radar Diário","edition_date":script["edition_date"],"headline":script["stories"][0]["headline"],"stories":len(script["stories"]),"estimated_minutes":script["estimated_minutes"],"format":a.format,"tts_chunks":count,"characters_narrated":chars,"sources":[{"title":s["article_title"],"publisher":s["source_name"],"url":s["source_url"]} for s in script["stories"]],"image_credits":"creditos-imagens.json","approval_required":True,"youtube_published":False}
  (out/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8");print(json.dumps(manifest,ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
