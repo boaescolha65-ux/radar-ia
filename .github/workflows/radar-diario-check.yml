@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/radar-diario-script
+      - feature/radar-diario-video-workflow
   pull_request:
     branches:
       - main
