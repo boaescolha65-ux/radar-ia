@@ -186,7 +186,7 @@ def piper(script,out):
  with wave.open(str(files[0]),"rb") as first:params=first.getparams();frames=[first.readframes(first.getnframes())]
  for path in files[1:]:
   with wave.open(str(path),"rb") as w:
-   if w.getparams()[:4]!=params[:4]:raise RuntimeError("Piper retornou arquivos WAV incompatíveis.")
+   if w.getparams()[:3]!=params[:3] or w.getparams()[4:]!=params[4:]:raise RuntimeError("Piper retornou arquivos WAV incompatíveis.")
    frames.append(w.readframes(w.getnframes()))
  with wave.open(str(out),"wb") as w:
   w.setparams(params)
