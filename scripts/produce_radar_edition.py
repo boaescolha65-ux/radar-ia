@@ -57,7 +57,16 @@ def feeds():
 def read_feed(source,url,cutoff):
  out=[]
  try:
-  root=ET.fromstring(get(url).content)
+  payload=get(url).content
+  try:root=ET.fromstring(payload)
+  except ET.ParseError:
+   text=payload.decode("utf-8",errors="replace")
+   text=re.sub(r"&(?!#\d+;|#x[0-9a-fA-F]+;|[A-Za-z][\w.-]*;)","&amp;",text)
+   text=re.sub(r"[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]","",text)
+   text=text.lstrip()
+   if text.startswith("<?xml") and "?>" in text:text=text.split("?>",1)[1]
+   root=ET.fromstring(text.encode("utf-8"))
+   print(f"[feed] {source}: XML recuperado após normalização de caracteres inválidos.",file=sys.stderr)
   for item in root.findall(".//item"):
    title=node_text(item,["title"]); link=node_text(item,["link"])
    desc=node_text(item,["description","{http://purl.org/rss/1.0/modules/content/}encoded"])
@@ -77,7 +86,8 @@ def read_feed(source,url,cutoff):
     desc=node_text(item,["{http://www.w3.org/2005/Atom}summary","{http://www.w3.org/2005/Atom}content"])
     dt=dateval(node_text(item,["{http://www.w3.org/2005/Atom}published","{http://www.w3.org/2005/Atom}updated"]))
     if title and url2 and dt and dt>=cutoff:out.append({"title":title,"url":url2,"summary":BeautifulSoup(desc,"html.parser").get_text(" ",strip=True)[:1800],"published":dt.isoformat(),"source":source,"feed_image":""})
- except Exception as e:print(f"[feed] {source}: {e}",file=sys.stderr)
+ except ET.ParseError as e:print(f"[feed] {source}: XML inválido nesta URL; fonte ignorada ({e})",file=sys.stderr)
+ except Exception as e:print(f"[feed] {source}: falha ao ler feed; fonte ignorada ({e})",file=sys.stderr)
  return out
 
 def article_body(url):
@@ -109,24 +119,42 @@ def gemini(items):
  model=os.getenv("GEMINI_MODEL","gemini-3.6-flash")
  candidates=[{k:x[k] for k in ("title","url","published","source","summary","body")} for x in items]
  prompt="""Você é editor-chefe do telejornal brasileiro O Seu Radar — Radar Diário, dedicado EXCLUSIVAMENTE a Tecnologia da Informação e Inteligência Artificial. Use apenas as notícias fornecidas. Selecione 6 a 8 pautas recentes, distintas e relevantes. Não invente fatos, datas, números, citações ou fontes. Diferencie fatos de análise. Escreva em português brasileiro natural.
-Crie edição de 12 a 15 minutos, cerca de 1.600–1.900 palavras faladas: abertura curta, 6–8 matérias de 180–240 palavras, transições e encerramento. Explique o que aconteceu, contexto e por que importa; contexto brasileiro somente quando sustentado pelas fontes. Não copie as matérias.
+Crie edição de 12 a 15 minutos, com alvo de 1.700–1.850 palavras faladas (faixa aceitável de 1.550–2.050): abertura curta, 6–8 matérias de aproximadamente 230–270 palavras cada, transições naturais e encerramento. Desenvolva o contexto, explique impactos e limitações; contexto brasileiro somente quando sustentado pelas fontes. Não copie as matérias e não use repetição artificial para atingir a extensão.
 Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exata de uma pauta fornecida","source_name":"fonte fornecida","category":"Tecnologia da Informação ou Inteligência Artificial","headline":"manchete curta","narration":"locução original","image_query":"descrição visual curta em inglês"}],"closing":"...","editorial_notes":["..."]}. source_url precisa ser uma URL exata recebida. Não repita pautas."""
  endpoint=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
- r=S.post(endpoint,params={"key":key},json={"contents":[{"role":"user","parts":[{"text":prompt+"\n\nPAUTAS:\n"+json.dumps(candidates,ensure_ascii=False)}]}],"generationConfig":{"temperature":0.25,"responseMimeType":"application/json","maxOutputTokens":12000}},timeout=180)
- if r.status_code==429:raise RuntimeError("Gemini atingiu a cota gratuita (HTTP 429); aguarde a renovação e tente novamente.")
- r.raise_for_status(); raw=r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
- raw=re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$","",raw)
- script=json.loads(raw); byurl={x["url"]:x for x in items}; used=set(); stories=[]
- for st in script.get("stories",[]):
-  url=st.get("source_url",""); src=byurl.get(url); narration=str(st.get("narration","")).strip(); words=len(narration.split())
-  if not src or url in used or words<130:continue
-  used.add(url); st.update({"source_url":url,"source_name":src["source"],"article_title":src["title"],"published":src["published"],"headline":str(st.get("headline") or src["title"])[:150],"word_count":words})
-  if st.get("category") not in ("Tecnologia da Informação","Inteligência Artificial"):st["category"]="Tecnologia da Informação"
-  stories.append(st)
- if not 6<=len(stories)<=8:raise RuntimeError(f"Gemini retornou {len(stories)} matérias válidas; necessário de 6 a 8.")
- words=len(str(script.get("opening","")).split())+len(str(script.get("closing","")).split())+sum(x["word_count"] for x in stories)
- if not 1550<=words<=2050:raise RuntimeError(f"Roteiro com {words} palavras, fora da faixa de 12–15 minutos; nenhuma publicação foi feita.")
- script.update({"program_title":"O Seu Radar — Radar Diário","edition_date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"stories":stories,"estimated_minutes":round(words/135,1)})
+ def request_script(instruction):
+  r=S.post(endpoint,params={"key":key},json={"contents":[{"role":"user","parts":[{"text":instruction+"\n\nPAUTAS:\n"+json.dumps(candidates,ensure_ascii=False)}]}],"generationConfig":{"temperature":0.25,"responseMimeType":"application/json","maxOutputTokens":16000}},timeout=180)
+  if r.status_code==429:raise RuntimeError("Gemini atingiu a cota gratuita (HTTP 429); aguarde a renovação e tente novamente.")
+  r.raise_for_status()
+  try:raw=r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+  except (KeyError,IndexError,TypeError) as e:raise RuntimeError("Gemini não retornou um roteiro completo. Consulte os detalhes da execução.") from e
+  raw=re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$","",raw)
+  return json.loads(raw)
+ byurl={x["url"]:x for x in items}
+ def validate(script):
+  used=set(); stories=[]
+  for st in script.get("stories",[]):
+   url=st.get("source_url",""); src=byurl.get(url); narration=str(st.get("narration","")).strip(); words=len(narration.split())
+   if not src or url in used or words<130:continue
+   used.add(url); st.update({"source_url":url,"source_name":src["source"],"article_title":src["title"],"published":src["published"],"headline":str(st.get("headline") or src["title"])[:150],"word_count":words})
+   if st.get("category") not in ("Tecnologia da Informação","Inteligência Artificial"):st["category"]="Tecnologia da Informação"
+   stories.append(st)
+  if not 6<=len(stories)<=8:raise RuntimeError(f"Gemini retornou {len(stories)} matérias válidas; necessário de 6 a 8.")
+  script["stories"]=stories
+  words=len(str(script.get("opening","")).split())+len(str(script.get("closing","")).split())+sum(x["word_count"] for x in stories)
+  return words
+ script=request_script(prompt)
+ words=validate(script)
+ if not 1550<=words<=2050:
+  print(f"[Gemini] Roteiro inicial com {words} palavras; solicitando uma revisão de extensão sem acrescentar fatos...")
+  revision_prompt="""Revise o roteiro JSON abaixo para que a locução completa fique entre 1.650 e 1.900 palavras. A versão anterior ficou fora da faixa. Preserve exatamente as 6–8 pautas, URLs, fontes e fatos já sustentados pelo material de referência. Amplie ou reduza com contexto, explicações, consequências e transições úteis, sem inventar dados, exemplos apresentados como fatos, citações ou acontecimentos. Não repita ideias nem acrescente enchimento. Cada matéria deve ter aproximadamente 230–270 palavras. Mantenha o formato JSON e os mesmos campos. Retorne APENAS o JSON revisado.
+ROTEIRO ANTERIOR:
+"""+json.dumps(script,ensure_ascii=False)
+  script=request_script(revision_prompt)
+  words=validate(script)
+ if not 1550<=words<=2050:raise RuntimeError(f"Após uma revisão, o roteiro ficou com {words} palavras, fora da faixa de 12–15 minutos; nenhuma publicação foi feita.")
+ script.update({"program_title":"O Seu Radar — Radar Diário","edition_date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"stories":script["stories"],"estimated_minutes":round(words/135,1)})
+ print(f"[Gemini] Roteiro validado: {words} palavras, estimativa de {script['estimated_minutes']} minutos.")
  return script
 
 def commons(query,dest):
