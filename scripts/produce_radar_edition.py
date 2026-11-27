@@ -3,6 +3,7 @@
 import argparse, email.utils, html, json, os, re, sys, time, wave, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from io import BytesIO
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
@@ -124,7 +125,7 @@ Retorne APENAS JSON válido: {"opening":"...","stories":[{"source_url":"URL exat
   stories.append(st)
  if not 6<=len(stories)<=8:raise RuntimeError(f"Gemini retornou {len(stories)} matérias válidas; necessário de 6 a 8.")
  words=len(str(script.get("opening","")).split())+len(str(script.get("closing","")).split())+sum(x["word_count"] for x in stories)
- if not 1400<=words<=2200:raise RuntimeError(f"Roteiro com {words} palavras, fora da faixa de 12–15 minutos; nenhuma publicação foi feita.")
+ if not 1550<=words<=2050:raise RuntimeError(f"Roteiro com {words} palavras, fora da faixa de 12–15 minutos; nenhuma publicação foi feita.")
  script.update({"program_title":"O Seu Radar — Radar Diário","edition_date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"stories":stories,"estimated_minutes":round(words/135,1)})
  return script
 
