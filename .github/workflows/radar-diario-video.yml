@@ -64,6 +64,7 @@ jobs:
             --images output/edition/images \
             --headline "$headline" \
             --date "$edition_date" \
+            --script output/edition/roteiro.json \
             --format shorts \
             --output-dir output/video
 
