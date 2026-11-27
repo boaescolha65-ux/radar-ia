@@ -30,3 +30,9 @@ jobs:
           Path("/tmp/radar-diario-admin.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check --input-type=module < /tmp/radar-diario-admin.js
+
+      - name: Validar pipeline Python de produção
+        run: |
+          python -m py_compile scripts/produce_radar_edition.py scripts/render_radar_video.py
+          python scripts/produce_radar_edition.py --help
+          python scripts/render_radar_video.py --help
